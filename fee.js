@@ -2,6 +2,10 @@ var neo4j = require('neo4j');
 var db = new neo4j.GraphDatabase('http://localhost:7474');
 var async = require('async');
 
+function array_diff(b, a){	
+	return b.filter(function(i) {return !(a.indexOf(i) > -1);});
+}
+
 var Fee = module.exports = function Fee(_node) {
 	this._node = _node;
 }
@@ -38,6 +42,48 @@ Object.defineProperty(Fee.prototype, 'costId', {
 
 Fee.prototype.ref = function(costORfee, callback){
 	this._node.createRelationshipTo(costORfee._node, 'ref', {}, callback);	
+}
+
+Fee.prototype.refNodes = function(nodes, callback){
+	var query = "start me=node({id}), to=node({nodes}) create me-[r:ref]->to  return me";
+	var params = {id: this._node.id, to: nodes};
+	db.query(query, params, callback);
+}
+
+Fee.prototype.unRef = function(costORfee, callback){
+	var query = "start me=node({id}), to=node({to}) match me-[r:ref]->to delete r return me";
+	var params = {id: this._node.id, to: costORfee.id};
+	db.query(query, params, callback);
+}
+
+Fee.prototype.unRefNodes = function(nodes, callback){
+	var query = "start me=node({id}), to=node({to}) match me-[r:ref]->to delete r return me";
+	var params = {id: this._node.id, to: nodes};
+	db.query(query, params, callback);
+}
+
+Fee.prototype.refedNodes = function(callback){
+	this._node.getRelationshipNodes({type:'ref', direction: 'out'}, function(err, nodes){
+		callback(err, nodes);		
+	});
+}
+
+Fee.prototype.refNodesByExpr = function(callback){
+	var ref = new Ref(this);
+	ref.refNodesByExpr(function(err, nodes){
+		callback(err, nodes);
+	});
+}
+
+Fee.prototype.buildRef = function(callback){
+	var me = this;
+	me.refedNodes(function(err, refedNodes){
+		me.refNodesByExpr(function(err, refByExpr){
+			me.unRefNodes(array_diff(refedNodes, refByExpr), function(err){
+				me.refNodes(array_diff(refByExpr, refedNodes), callback)
+			});
+		});
+	});
 }
 
 Fee.create = function(data, costId, parentId, callback){
