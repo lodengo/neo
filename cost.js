@@ -2,7 +2,7 @@ var neo4j = require('neo4j');
 var db = new neo4j.GraphDatabase('http://localhost:7474');
 var async = require('async');
 var Fee = require("./fee.js");
-var Ref = require("./ref.js");
+
 
 var Cost = module.exports = function Cost(_node) {
 	this._node = _node;
@@ -14,17 +14,25 @@ Object.defineProperty(Cost.prototype, 'id', {
 	}
 });
 
+Object.defineProperty(Cost.prototype, 'type', {
+	get : function() {
+		return this._node.data['type'];
+	}
+});
+
 Cost.prototype.fees = function(callback){
-	var costId = this._node.id;
+	var me = this;
+	var costId = me._node.id;
 	db.getIndexedNodes('fee', 'costId', costId, function(err, nfees){
-		async.map(nfees, function(nfee, cb){cb(null, new Fee(nfee));}, callback);		
+		async.map(nfees, function(nfee, cb){cb(null, new Fee(nfee, me));}, callback);		
 	});
 }
 
 Cost.prototype.fee = function(feeName, callback){
-	var query = "costId:" + this._node.id + " AND feeName:"+fName;
+	var me = this;
+	var query = "costId:" + this._node.id + " AND feeName:"+feeName;
 	db.queryNodeIndex('fee', query, function(err, nfees){
-		async.map(nfees, function(nfee, cb){cb(null, new Fee(nfee));}, callback);	
+		async.map(nfees, function(nfee, cb){cb(null, new Fee(nfee, me));}, callback);	
 	});		
 }
 
@@ -43,10 +51,15 @@ Cost.prototype.childByType = function(costType, callback){
 }
 
 Cost.prototype.childFees = function(childType, feeName, callback){
-	var query = 'start n=node({costId}) match n-[:child]->child, child-[:fee|child*]->fee where fee.feeName="{name}" and child.type="{type}" return fee';
-	var params = {costId: this._node.id, type:childType, name:feeName};
-	db.query(query, params, function(err, nfees){
-		async.map(nfees, function(nfee, cb){cb(null, new Fee(nfee));}, callback);	
+	var me = this;
+	me.child(function(err, children){
+		async.concat(children, function(child, cb){
+			if(child.type == childType){
+				child.fee(feeName, cb);			
+			}else{
+				cb(null, []);
+			}			
+		}, callback);
 	});
 }
 
@@ -65,16 +78,15 @@ Cost.prototype.parent = function(callback){
 }
 
 Cost.prototype.parentFees = function(callback){
-	this._node.getRelationshipNodes({type:'child', direction: 'in'}, function(err, parents){
+	var me = this;
+	me.parent(function(err, parents){
 		if(parents && parents.length > 0){
-			var parentId = parents[0].id;
-			db.getIndexedNodes('fee', 'costId', parentId, function(err, parentFees){
-				async.map(parentFees, function(nfee, cb){cb(null, new Fee(nfee));}, callback);		
-			});
+			var parent = parents[0];
+			parent.fees(callback);
 		}else{
-			callback([]);
-		}				
-	});
+			callback(err,[]);
+		}
+	});	
 }
 
 Cost.prototype.ancestor = function(callback){
@@ -85,12 +97,20 @@ Cost.prototype.ancestor = function(callback){
 	});
 }
 
+Cost.prototype.createFee = function(data, callback){
+	var me = this;
+	var costId = me._node.id
+	Fee.create(data, costId, null, function(err, nfee){
+		callback(err, new Fee(nfee, me));
+	});
+}
+
 Cost.prototype.feesMayRef = function(callback){
 	var me = this;
 	var fees = [];
 	me.fees(function(err, myFees){
 		fees = fees.concat(myFees);
-		me.parentFees(function(err, parentFees){
+		me.parentFees(function(err, parentFees){ 
 			fees = fees.concat(parentFees);
 			callback(err, fees);
 		});

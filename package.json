@@ -8,6 +8,7 @@
   "dependencies": {
     "express": "*",    
 	"neo4j":"*",
-	"async": "*"	
+	"async": "*",
+	"mathjs": "*"	
   }
 }
