@@ -1,21 +1,5 @@
 var async = require('async');
-
-var refFuncs = ['f', 'c', 'cf', 'ccf'];
-var refReg = new RegExp(refFuncs.join('\\([^\\)]*\\)|')+'\\([^\\)]*\\)', 'g');
-
-function array_unique(arr) {
-	var a = [];
-    var l = arr.length;
-    for(var i=0; i<l; i++) {
-      for(var j=i+1; j<l; j++) {
-        // If this[i] is found later in the array
-        if (arr[i] === arr[j])
-          j = ++i;
-      }
-      a.push(arr[i]);
-    }
-    return a;
-};
+var util = require("./util.js");
 
 var Ref = module.exports = function Ref(fee) {	
 	this._fee = fee;	
@@ -25,7 +9,7 @@ var Ref = module.exports = function Ref(fee) {
 Ref.prototype.refNodesByExpr = function(callback){
 	var me = this;
 	var feeExpr = me._fee.feeExpr;
-	var matches = feeExpr.match(refReg) || [];
+	var matches = feeExpr.match(util.refReg) || [];
 	
 	async.concat(matches, function(str, cb){
 		var i = str.indexOf("(");
@@ -38,11 +22,11 @@ Ref.prototype.refNodesByExpr = function(callback){
 		}else{
 			cb(null, []);
 		}
-	}, function(err, nodes){callback(err, array_unique(nodes));});
+	}, function(err, nodes){callback(err, util.array_unique(nodes));});
 }
 
 Ref.prototype.cf = function(feeName, callback){	
-	this._cost.fee(feeName, function(err, fees){
+	this._cost.feesByName(feeName, function(err, fees){
 		async.map(fees, function(fee, cb){cb(null, fee.id);}, callback);
 	});		
 }

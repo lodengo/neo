@@ -2,10 +2,8 @@ var neo4j = require('neo4j');
 var db = new neo4j.GraphDatabase('http://localhost:7474');
 var async = require('async');
 var Ref = require("./ref.js");
+var util = require("./util.js");
 
-function array_diff(b, a){	
-	return b.filter(function(i) {return !(a.indexOf(i) > -1);});
-}
 
 var Fee = module.exports = function Fee(_node, cost) {
 	this._node = _node;
@@ -91,9 +89,9 @@ Fee.prototype.refNodesByExpr = function(callback){
 Fee.prototype.buildRef = function(callback){
 	var me = this;
 	me.refedNodes(function(err, refedNodes){ 
-		me.refNodesByExpr(function(err, refByExpr){	//console.log(['buildRef', me.feeName, refedNodes, refByExpr]);
-			me.unRefNodes(array_diff(refedNodes, refByExpr), function(err){
-				me.refNodes(array_diff(refByExpr, refedNodes), callback)
+		me.refNodesByExpr(function(err, refByExpr){
+			me.unRefNodes(util.array_diff(refedNodes, refByExpr), function(err){
+				me.refNodes(util.array_diff(refByExpr, refedNodes), callback)
 			});
 		});
 	});
@@ -114,7 +112,7 @@ Fee.create = function(data, costId, parentId, callback){
 		
 		if(parentId){
 			db.getNodeById(parentId, function(err, parentFee){
-				parentFee.createRelationshipTo(nFee, 'child', {}, function(err, rel){
+				parentFee.createRelationshipTo(nFee, 'feechild', {}, function(err, rel){
 					async.each(childFees, function(cfee, cb){me.create(cfee, costId, nFee.id, cb)}, function(err){
 						callback(err, nFee);
 					});					

@@ -3,35 +3,12 @@ var math = require('mathjs')();
 
 var neo4j = require('neo4j');
 var db = new neo4j.GraphDatabase('http://localhost:7474');
+var util = require("./util.js");
 
-function array_unique(arr) {
-	var a = [];
-    var l = arr.length;
-    for(var i=0; i<l; i++) {
-      for(var j=i+1; j<l; j++) {
-        // If this[i] is found later in the array
-        if (arr[i] === arr[j])
-          j = ++i;
-      }
-      a.push(arr[i]);
-    }
-    return a;
-};
-
-math.import({
-	sum: function(args){		
-		var total = 0;
-		var argsArray = arguments;
-		Object.keys(argsArray).forEach(function(key){total += argsArray[key];});
-		return total;
-	}
-});
+math.import(util.math_extend);
 
 var Cost = require("./cost.js");
 var Fee = require("./fee.js");
-
-var refFuncs = ['f', 'c', 'cf', 'ccf'];
-var refReg = new RegExp(refFuncs.join('\\([^\\)]*\\)|')+'\\([^\\)]*\\)', 'g');
 
 var Calc = module.exports = function Calc(fee) {	
 	this._fee = fee;	
@@ -41,7 +18,7 @@ var Calc = module.exports = function Calc(fee) {
 Calc.prototype.visit = function(callback){
 	var me = this;	
 	var feeExpr = me._fee.feeExpr; 
-	var matches = feeExpr.match(refReg) || [];
+	var matches = feeExpr.match(util.refReg) || [];
 	
 	async.each(matches, function(str, cb){
 		var i = str.indexOf("(");
@@ -68,7 +45,7 @@ Calc.prototype.visit = function(callback){
 }
 
 Calc.prototype.cf = function(feeName, callback){	
-	this._cost.fee(feeName, function(err, fees){
+	this._cost.feesByName(feeName, function(err, fees){
 		if(fees && fees.length > 0){
 			var fee = fees[0];
 			var value = fee.feeResult;
@@ -124,7 +101,7 @@ Calc.step = function(nodes, callback){
 				node.getRelationshipNodes({type:'ref', direction: 'in'}, cb);
 			});		
 		}, function(err, nextNodes){
-			me.step(array_unique(nextNodes), callback);
+			me.step(util.array_unique(nextNodes), callback);
 		});
 	}
 }
