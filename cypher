@@ -52,6 +52,25 @@ start n=node(333) match n-[:costchild*]->descendant, descendant-[:fee|feechild*]
 //sibling fees
 start n=node(340) match n<-[:costchild]-parent, parent-[:costchild]->sibling, sibling-[:fee|feechild*]->siblingfees where sibling <> n return siblingfees
 
+//all fees ref me (direct or indirect)
+start n=node(1078) match n<-[:ref*]-fees return distinct fees
+
+//邻接表
+start n=node(1080, 1082, 1081)
+match n-[:ref]->f
+where id(f) in [1080, 1082, 1081]
+return id(n), collect(id(f))
+
+
+start n=node(1078) 
+match n<-[:ref*]-fees, fees-[:ref]->f 
+return fees, f
+
+
+
+
+
+
 
 
 

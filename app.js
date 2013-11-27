@@ -308,8 +308,10 @@ App.prototype.createGlj = function(parentId, callback) {
 // //////////////////////////////////////////////////////
 var app = new App();
 
-app.createDe(null, function(err, de){ 
-	async.times(8, function(n, next){
+//Cost.create({age:30}, null, function(err, node){console.log([err, node.id]);});
+
+app.createDe(null, function(err, de){ //console.log(de.id);
+	async.times(3, function(n, next){
 		app.createGlj(de.id, function(err, glj){
 			next(err, glj.id);
 		});
@@ -317,6 +319,8 @@ app.createDe(null, function(err, de){
 		console.log(de.id, gljs);
 	});	
 });
+
+
 
 
 

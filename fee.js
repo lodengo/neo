@@ -47,51 +47,35 @@ Fee.prototype.save = function (callback) {
     this._node.save(callback);
 };
 
-Fee.prototype.ref = function(costORfee, callback){
-	this._node.createRelationshipTo(costORfee._node, 'ref', {}, callback);	
+Fee.prototype.refNodes = function(nodeids, callback){	
+	var id = this.id;
+	util.query2(util.cypher.fee_ref_nodes, {id: id, nodes: nodeids}, callback);	
 }
 
-Fee.prototype.refNodes = function(nodes, callback){	
-	var query = "start me=node({id}), to=node({nodes}) create me-[r:ref]->to  return r";
-	var params = {id: this._node.id, nodes: nodes};
-	db.query(query, params, callback);
+Fee.prototype.unRefNodes = function(nodeids, callback){
+	var id = this.id;
+	util.query2(util.cypher.fee_unref_node, {id: id, to: nodeids}, callback);	
 }
 
-Fee.prototype.unRef = function(costORfee, callback){
-	var query = "start me=node({id}), to=node({to}) match me-[r:ref]->to delete r return me";
-	var params = {id: this._node.id, to: costORfee.id};
-	db.query(query, params, callback);
+Fee.prototype.refedNodeids = function(callback){
+	var id = this.id;
+	util.query(util.cypher.fee_refed_nodeids, {id: id}, callback);	
 }
 
-Fee.prototype.unRefNodes = function(nodes, callback){
-	var query = "start me=node({id}), to=node({to}) match me-[r:ref]->to delete r return me";
-	var params = {id: this._node.id, to: nodes};
-	db.query(query, params, callback);
-}
-
-Fee.prototype.refedNodes = function(callback){
-	this._node.getRelationshipNodes({type:'ref', direction: 'out'}, function(err, nodes){
-		async.map(nodes, function(node, cb){cb(null, node.id);}, callback);
-	});
-}
-
-Fee.prototype.refNodesByExpr = function(callback){
+Fee.prototype.refNodeidsByExpr = function(callback){
 	var me = this;
-	var costId = me._node.data['costId'];
-	db.getNodeById(costId, function(err, cost){		
-		var ref = new Ref(me);
-		ref.refNodesByExpr(function(err, nodes){
-			callback(err, nodes);
-		});
-	});	
+	var ref = new Ref(me);
+	ref.refNodesByExpr(function(err, nodes){
+		callback(err, nodes);
+	});
 }
 
 Fee.prototype.buildRef = function(callback){
 	var me = this;
-	me.refedNodes(function(err, refedNodes){ 
-		me.refNodesByExpr(function(err, refByExpr){
-			me.unRefNodes(util.array_diff(refedNodes, refByExpr), function(err){
-				me.refNodes(util.array_diff(refByExpr, refedNodes), callback)
+	me.refedNodeids(function(err, refedNodes){ 
+		me.refNodeidsByExpr(function(err, refByExpr){
+			me.unRefNodes(refedNodes.diff(refByExpr), function(err){
+				me.refNodes(refByExpr.diff(refedNodes), callback)
 			});
 		});
 	});
@@ -105,28 +89,19 @@ Fee.create = function(data, costId, parentId, callback){
 	data.nodeType = 'fee';
 	data.costId = costId;
 	
-	var nFee = db.createNode(data);	
-	nFee.save(function(err){
-		nFee.index('fee', 'costId', costId, function(err){});
-		nFee.index('fee', 'feeName', data.feeName, function(err){});		
+	if(parentId){
+		util.query(util.cypher.create_fee_child, {parentId:parentId, data: data}, function(err, node){
+			async.each(childFees, function(cfee, cb){me.create(cfee, costId, node[0].id, cb)}, function(err){
+				callback(err, node[0]);
+			});	
+		});
 		
-		if(parentId){
-			db.getNodeById(parentId, function(err, parentFee){
-				parentFee.createRelationshipTo(nFee, 'feechild', {}, function(err, rel){
-					async.each(childFees, function(cfee, cb){me.create(cfee, costId, nFee.id, cb)}, function(err){
-						callback(err, nFee);
-					});					
-				});
-			});
-		}else{
-			db.getNodeById(costId, function(err, nCost){
-				nCost.createRelationshipTo(nFee, "fee", function(err, rel){
-					async.each(childFees, function(cfee, cb){me.create(cfee, costId, nFee.id, cb)}, function(err){
-						callback(err, nFee);
-					});	
-				});				
-			});			
-		}		
-	});
+	}else{
+		util.query(util.cypher.create_cost_fee, {costId:costId, data: data}, function(err, node){
+			async.each(childFees, function(cfee, cb){me.create(cfee, costId, node[0].id, cb)}, function(err){
+				callback(err, node[0]);
+			});	
+		});
+	}	
 }
 

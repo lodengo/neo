@@ -22,7 +22,7 @@ Ref.prototype.refNodesByExpr = function(callback){
 		}else{
 			cb(null, []);
 		}
-	}, function(err, nodes){callback(err, util.array_unique(nodes));});
+	}, function(err, nodes){callback(err, nodes.unique());});
 }
 
 Ref.prototype.cf = function(feeName, callback){	

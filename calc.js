@@ -1,10 +1,8 @@
 var async = require('async');
 var math = require('mathjs')();
-
-var neo4j = require('neo4j');
-var db = new neo4j.GraphDatabase('http://localhost:7474');
 var util = require("./util.js");
-
+var TopoSort = require("./topsort.js");
+	
 math.import(util.math_extend);
 
 var Cost = require("./cost.js");
@@ -15,7 +13,7 @@ var Calc = module.exports = function Calc(fee) {
 	this._cost = fee._cost;
 }
 
-Calc.prototype.visit = function(callback){
+Calc.prototype.calc = function(callback){
 	var me = this;	
 	var feeExpr = me._fee.feeExpr; 
 	var matches = feeExpr.match(util.refReg) || [];
@@ -38,7 +36,7 @@ Calc.prototype.visit = function(callback){
 		}		
 	}, function(err){ 		
 		var feeResult = math.eval(feeExpr); 
-		console.log([me._fee.feeName, feeExpr, feeResult]);
+		console.log([me._cost.type, me._fee.feeName, feeExpr, feeResult]);
 		me._fee.feeResult = feeResult.toFixed(2);
 		me._fee.save(function(err){callback(err, feeResult);});		
 	});
@@ -74,34 +72,26 @@ Calc.prototype.ccf = function(costType, feeName, callback){
 	});	
 }
 
-Calc.visit = function(node, callback){
-	var nodeType = node.data.nodeType;
-	if(nodeType == 'fee'){
-		var costId = node.data.costId;
-		db.getNodeById(costId, function(err, ncost){
-			var fee = new Fee(node, new Cost(ncost));
-			var calc = new Calc(fee);
-			calc.visit(function(err, feeResult){				
-				callback(err);
-			});
+Calc.start = function(ids, callback){
+	util.query2(util.cypher.fees_adj, {id: ids}, function(err, rows){
+		var fees = rows.map(function(row){return row.fid});
+		
+		var uvs = rows.map(function(row){
+			return {u: row.fid, v: fees.intersect(row.fids)};
 		});
-	}else{
-		callback(null);
-	}
-}
-
-Calc.step = function(nodes, callback){	
-	var me = this;
-	nodes = [].concat(nodes);
-	if(nodes.length == 0){
-		callback(null);
-	}else{
-		async.concat(nodes, function(node, cb){		
-			me.visit(node, function(err){
-				node.getRelationshipNodes({type:'ref', direction: 'in'}, cb);
-			});		
-		}, function(err, nextNodes){
-			me.step(util.array_unique(nextNodes), callback);
-		});
-	}
+		
+		var toposort = new TopoSort(uvs);
+		fees = toposort.sort();	
+		
+		if(fees.cycle){
+			callback(null);
+		}else{
+			async.eachSeries(fees.order, function(feeid, cb){
+				Cost.getFee(parseInt(feeid), function(err, fee){
+					var calc = new Calc(fee);
+					calc.calc(cb);
+				});				
+			}, callback);			
+		}		
+	});
 }

@@ -120,26 +120,31 @@ Cost.get = function(id, callback){
 			callback(err, new Cost(ncosts[0]));	
 		}else{
 			callback(err, null);
-		}
-			
+		}			
+	});	
+}
+
+Cost.getFee = function(id, callback){
+	util.query2(util.cypher.fee_byid, {id: id}, function(err, rows){
+		if(rows && rows.length > 0){
+			callback(err, new Fee(rows[0].fee, new Cost(rows[0].cost)));	
+		}else{
+			callback(err, null);
+		}			
 	});	
 }
 
 Cost.create = function(data, parentId, callback){
 	data.nodeType = 'cost';
-	var nCost = db.createNode(data);
-	var cost = new Cost(nCost);
-	nCost.save(function(err){
-		if(parentId){
-			db.getNodeById(parentId, function(err, parentCost){
-				parentCost.createRelationshipTo(nCost, "costchild", function(err, rel){
-					callback(err, cost);
-				});
-			});
-		}else{
-			callback(err, cost);
-		}		
-	});
+	if(parentId){
+		util.query(util.cypher.create_cost_child, {parentId:parentId, data: data}, function(err, node){
+			callback(err, new Cost(node[0]));
+		});
+	}else{
+		util.query(util.cypher.create_node, {data: data}, function(err, node){
+			callback(err, new Cost(node[0]));
+		});
+	}
 }
 
 
