@@ -6,3 +6,5 @@ neo
 4. $ npm install
 5. $ node app
 6. open in browser: http://localhost:7474/webadmin/#/data/search/start%20n%3Dnode(*)%20return%20n/
+
+![neo](neo.png)
