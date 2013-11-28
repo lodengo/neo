@@ -71,7 +71,7 @@ Array.prototype.diff =
  };
  ////////////////////////////////////////////////////
 //费用表达式引用关系
-exports.refReg = new RegExp(['f', 'c', 'cf', 'ccf'].join('\\([^\\)]*\\)|')+'\\([^\\)]*\\)', 'g');
+exports.refReg = new RegExp(['f', 'c', 'cf', 'cc', 'ccf', 'cs', 'csf', 'cas'].join('\\([^\\)]*\\)|')+'\\([^\\)]*\\)', 'g');
 
 //费用表达式--计算扩展 see: https://github.com/josdejong/mathjs/blob/master/docs/extend.md
 exports.math_extend = {
@@ -84,7 +84,7 @@ exports.math_extend = {
 };
 //cypher query
 exports.cypher = {
-		cost_byid: 'start cost=node({id}) return cost',
+		node_byid: 'start node=node({id}) return node',
 		cost_parent: 'start n=node({id}) match n<-[:costchild]-parent return parent',
 		cost_ancestor: 'start n=node({id}) match n<-[:costchild*]-ancestor return ancestor',
 		cost_child: 'start n=node({id}) match n-[:costchild]->child return child',
@@ -108,6 +108,30 @@ exports.cypher = {
 		create_cost_child: 'start parent=node({parentId}) create parent-[:costchild]->(node {data}) return node',
 		create_fee_child: 'start parent=node({parentId}) create parent-[:feechild]->(node {data}) return node',
 		create_cost_fee: 'start cost=node({costId}) create cost-[:fee]->(node {data}) return node',
+		update_fee_result: 'start fee=node({id}) set fee.feeResult={result}',
+		parent_ref_fees: 'start cost=node({id}) match cost<-[:costchild]-parent, parent-[:fee|feechild*]->parentfees where parentfees.feeExpr =~ "(.*)cc(.*)" return parentfees',
+		sibling_ref_fees: 'start cost=node({id}) match cost<-[:costchild]-parent, parent-[:costchild]->sibling, sibling-[:fee|feechild*]->siblingfees where sibling <> cost and siblingfees.feeExpr =~ "(.*)cs(.*)" return siblingfees',
+		descendant_ref_fees: 'start cost=node({id}) match cost-[:costchild*]->descendant, descendant-[:fee|feechild*]->descendantfees where descendantfees.feeExpr =~ "(.*)cas(.*)" return descendantfees',
+		
+};
+
+exports.refQuery = {
+		cf: 'start cost=node({costId}) match cost-[:fee|feechild*]->fees where fees.feeName! ={feeName} return id(fees)',
+		cc: 'start cost=node({costId}) match cost-[:costchild]->child where child.type! = {type} and has(child.{{prop}}) return id(child)',
+		ccf: 'start cost=node({costId}) match cost-[:costchild]->child, child-[:fee|feechild*]->childfees where child.type! = {type} and childfees.feeName! = {feeName} return id(childfees)',
+		cs: 'start cost=node({costId}) match cost<-[:costchild]-parent, parent-[:costchild]->sibling where sibling <> cost and has(sibling.{{prop}}) return id(sibling)',
+		csf: 'start cost=node({costId}) match cost<-[:costchild]-parent, parent-[:costchild]->sibling, sibling-[:fee|feechild*]->siblingfees where sibling <> cost and siblingfees.feeName! ={feeName}  return id(siblingfees)',
+		cas: 'start cost=node({costId}) match cost<-[:costchild*]-ancestor where has(ancestor.{{prop}}) return id(ancestor)'
+};
+
+exports.calcQuery = {
+		c: 'start cost=node({costId}) return cost.{{prop}}',
+		cf: 'start cost=node({costId}) match cost-[:fee|feechild*]->fees where fees.feeName! ={feeName} return fees.feeResult',
+		cc: 'start cost=node({costId}) match cost-[:costchild]->child where child.type! = {type} and has(child.{{prop}}) return child.{{prop}}',
+		ccf: 'start cost=node({costId}) match cost-[:costchild]->child, child-[:fee|feechild*]->childfees where child.type! = {type} and childfees.feeName! = {feeName} return childfees.feeResult',
+		cs: 'start cost=node({costId}) match cost<-[:costchild]-parent, parent-[:costchild]->sibling where sibling <> cost and has(sibling.{{prop}}) return sibling.{{prop}}',
+		csf: 'start cost=node({costId}) match cost<-[:costchild]-parent, parent-[:costchild]->sibling, sibling-[:fee|feechild*]->siblingfees where sibling <> cost and siblingfees.feeName! ={feeName}  return siblingfees.feeResult',
+		cas: 'start cost=node({costId}) match cost<-[:costchild*]-ancestor where has(ancestor.{{prop}}) return ancestor.{{prop}}'
 };
 
 exports.query2 = function(query, params, callback){
@@ -115,6 +139,12 @@ exports.query2 = function(query, params, callback){
 };
 
 exports.query = function(query, params, callback){
+	var matches = query.match(/({{[^}]*}})/g);
+	matches && matches.forEach(function(str){
+		var key = str.slice(2, -2);
+		query = query.replace(str, params[key]);
+	});
+	
 	db.query(query, params, function(err, rows){
 		if(err){
 			callback(err, []);

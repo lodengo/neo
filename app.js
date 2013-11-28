@@ -6,6 +6,7 @@ var Cost = require("./cost.js");
 var Fee = require("./fee.js");
 var Ref = require("./ref.js");
 var Calc = require("./calc.js");
+var util = require("./util.js");
 
 var fees = {
 	'ztgc' : [ { //整体工程
@@ -210,7 +211,7 @@ var fees = {
 	}
 	,{
 		feeName : '人工费合价',
-		feeExpr : 'cf(人工费)*c(工程量)',
+		feeExpr : 'cf(人工费)*c(quantity)',
 		feeResult : '0'
 	}
 	, {
@@ -220,7 +221,7 @@ var fees = {
 	}
 	, {
 		feeName : '材料费合价',
-		feeExpr : 'cf(材料费)*c(工程量)',
+		feeExpr : 'cf(材料费)*c(quantity)',
 		feeResult : '0'
 	}
 	, {
@@ -230,7 +231,7 @@ var fees = {
 	}
 	, {
 		feeName : '机械费合价',
-		feeExpr : 'cf(机械费)*c(工程量)',
+		feeExpr : 'cf(机械费)*c(quantity)',
 		feeResult : '0'
 	}
 	, {
@@ -239,7 +240,7 @@ var fees = {
 		feeResult : '0'
 	}, {
 		feeName : '直接费合价',
-		feeExpr : 'cf(直接费)*c(工程量)',
+		feeExpr : 'cf(直接费)*c(quantity)',
 		feeResult : '0'
 	}
 	, {
@@ -248,7 +249,7 @@ var fees = {
 		feeResult : '0'
 	}, {
 		feeName : '管理费合价',
-		feeExpr : 'cf(管理费)*c(工程量)',
+		feeExpr : 'cf(管理费)*c(quantity)',
 		feeResult : '0'
 	}, {
 		feeName : '利润',
@@ -256,7 +257,7 @@ var fees = {
 		feeResult : '0'
 	}, {
 		feeName : '利润合价',
-		feeExpr : 'cf(利润)*c(工程量)',
+		feeExpr : 'cf(利润)*c(quantity)',
 		feeResult : '0'
 	}, {
 		feeName : '综合单价',
@@ -264,13 +265,13 @@ var fees = {
 		feeResult : '0'
 	}, {
 		feeName : '综合合价',
-		feeExpr : 'cf(综合单价)*c(工程量)',
+		feeExpr : 'cf(综合单价)*c(quantity)',
 		feeResult : '0'
 	} 
 	],
 	'glj' : [ { // 工料机
 		feeName : '直接费',
-		feeExpr : 'c(单价)*c(含量)',
+		feeExpr : 'c(price)*c(content)',
 		feeResult : '0'
 	} ]
 };
@@ -289,7 +290,7 @@ App.prototype.createDwgc = function(parentId, callback) {
 App.prototype.createDe = function(parentId, callback) {
 	var de = {
 		type : '定额',
-		工程量: Math.random() * 1000
+		quantity: Math.random() * 1000
 	};
 	var fs = fees['de'];
 	Api.createCost(de, fs, parentId, callback);
@@ -299,8 +300,8 @@ App.prototype.createGlj = function(parentId, callback) {
 	var types = [ "人工", "材料", "机械" ];
 	var glj = {
 		'type' : types[Math.floor(Math.random() * 10) % 3],
-		'单价' : Math.random() * 100,
-		'含量' : Math.random()
+		'price' : Math.random() * 100,
+		'content' : Math.random()
 	};
 	var fs = fees['glj'];
 	Api.createCost(glj, fs, parentId, callback);
@@ -308,17 +309,19 @@ App.prototype.createGlj = function(parentId, callback) {
 // //////////////////////////////////////////////////////
 var app = new App();
 
-//Cost.create({age:30}, null, function(err, node){console.log([err, node.id]);});
-
-app.createDe(null, function(err, de){ //console.log(de.id);
-	async.times(3, function(n, next){
-		app.createGlj(de.id, function(err, glj){
-			next(err, glj.id);
-		});
-	}, function(err, gljs){
-		console.log(de.id, gljs);
-	});	
+app.createGlj(626, function(err, de){ console.log(de.id);
+//	async.times(1, function(n, next){
+//		app.createGlj(de.id, function(err, glj){
+//			next(err, glj.id);
+//		});
+//	}, function(err, gljs){
+//		console.log(de.id, gljs);
+//	});	
 });
+
+
+
+
 
 
 

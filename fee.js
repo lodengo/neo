@@ -1,13 +1,10 @@
-var neo4j = require('neo4j');
-var db = new neo4j.GraphDatabase('http://localhost:7474');
 var async = require('async');
 var Ref = require("./ref.js");
 var util = require("./util.js");
 
 
-var Fee = module.exports = function Fee(_node, cost) {
-	this._node = _node;
-	this._cost = cost;
+var Fee = module.exports = function Fee(_node) {
+	this._node = _node;	
 }
 
 Object.defineProperty(Fee.prototype, 'id', {
@@ -74,11 +71,22 @@ Fee.prototype.buildRef = function(callback){
 	var me = this;
 	me.refedNodeids(function(err, refedNodes){ 
 		me.refNodeidsByExpr(function(err, refByExpr){
+			console.log(['ref', me.costId, me.id, me.feeName, refedNodes, refByExpr]);
 			me.unRefNodes(refedNodes.diff(refByExpr), function(err){
 				me.refNodes(refByExpr.diff(refedNodes), callback)
 			});
 		});
 	});
+}
+
+Fee.get = function(id, callback){
+	util.query(util.cypher.node_byid, {id: id}, function(err, nodes){
+		if(nodes && nodes.length > 0){
+			callback(err, new Fee(nodes[0]));	
+		}else{
+			callback(err, null);
+		}			
+	});	
 }
 
 Fee.create = function(data, costId, parentId, callback){

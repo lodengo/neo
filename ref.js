@@ -3,7 +3,6 @@ var util = require("./util.js");
 
 var Ref = module.exports = function Ref(fee) {	
 	this._fee = fee;	
-	this._cost = fee._cost;
 }
 
 Ref.prototype.refNodesByExpr = function(callback){
@@ -25,23 +24,41 @@ Ref.prototype.refNodesByExpr = function(callback){
 	}, function(err, nodes){callback(err, nodes.unique());});
 }
 
-Ref.prototype.cf = function(feeName, callback){	
-	this._cost.feesByName(feeName, function(err, fees){
-		async.map(fees, function(fee, cb){cb(null, fee.id);}, callback);
-	});		
-}
-
 Ref.prototype.f = function(pName, callback){
 	callback(null, []);
 }
 
 Ref.prototype.c = function(pName, callback){	
-	var costId = this._cost.id;
+	var costId = this._fee.costId;
 	callback(null, [costId]);
 }
 
+Ref.prototype.cf = function(feeName, callback){	
+	var costId = this._fee.costId;
+	util.query(util.refQuery.cf, {costId: costId, feeName:feeName}, callback);		
+}
+
+Ref.prototype.cc = function(costType, pName, callback){
+	var costId = this._fee.costId;
+	util.query(util.refQuery.cc, {costId: costId, type:costType, prop:pName}, callback);	
+}
+
 Ref.prototype.ccf = function(costType, feeName, callback){
-	this._cost.childFees(costType, feeName, function(err, fees){
-		async.map(fees, function(fee, cb){cb(null, fee.id);}, callback);			
-	});	
+	var costId = this._fee.costId;
+	util.query(util.refQuery.ccf, {costId: costId, type:costType, feeName:feeName}, callback);	
+}
+
+Ref.prototype.cs = function(prop, callback){
+	var costId = this._fee.costId;
+	util.query(util.refQuery.cs, {costId: costId, prop:prop}, callback);	
+}
+
+Ref.prototype.csf = function(feeName, callback){
+	var costId = this._fee.costId;
+	util.query(util.refQuery.csf, {costId: costId, feeName:feeName}, callback);	
+}
+
+Ref.prototype.cas = function(prop, callback){
+	var costId = this._fee.costId;
+	util.query(util.refQuery.cas, {costId: costId, prop:prop}, callback);	
 }
