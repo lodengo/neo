@@ -42,3 +42,7 @@ Api.createCost = function(data, fees, parentId, callback) {
 		});
 	});
 }
+
+Api.updateCost = function(id, key, value, callback){
+	
+}

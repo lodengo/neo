@@ -106,8 +106,18 @@ Calc.prototype.csf = function(feeName, callback){
 
 Calc.prototype.cas = function(prop, callback){
 	var costId = this._fee.costId;
-	util.query(util.calcQuery.cas, {costId: costId, prop:prop}, function(err, results){
-		callback(err, results[0]);
+	util.query2(util.calcQuery.cas, {costId: costId, prop:prop}, function(err, results){
+		if(results && results.length > 0){
+			var s = results[0].s;
+			var a = results[0].a[0];
+			if(s){
+				callback(err, s);
+			}else{
+				callback(err, a);
+			}
+		}else{
+			callback(err, 0);
+		}		
 	});	
 }
 

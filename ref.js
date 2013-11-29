@@ -60,5 +60,15 @@ Ref.prototype.csf = function(feeName, callback){
 
 Ref.prototype.cas = function(prop, callback){
 	var costId = this._fee.costId;
-	util.query(util.refQuery.cas, {costId: costId, prop:prop}, callback);	
+	util.query2(util.refQuery.cas, {costId: costId, prop:prop}, function(err, rows){
+		for(var i = 0; i < rows.length; i++){
+			var row = rows[i];
+			if(row.s){
+				return callback(null, [costId]);
+			}
+			else if(row.aa){
+				return callback(null, [row.a]);
+			}
+		}
+	});	
 }

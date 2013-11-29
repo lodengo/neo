@@ -121,7 +121,7 @@ exports.refQuery = {
 		ccf: 'start cost=node({costId}) match cost-[:costchild]->child, child-[:fee|feechild*]->childfees where child.type! = {type} and childfees.feeName! = {feeName} return id(childfees)',
 		cs: 'start cost=node({costId}) match cost<-[:costchild]-parent, parent-[:costchild]->sibling where sibling <> cost and has(sibling.{{prop}}) return id(sibling)',
 		csf: 'start cost=node({costId}) match cost<-[:costchild]-parent, parent-[:costchild]->sibling, sibling-[:fee|feechild*]->siblingfees where sibling <> cost and siblingfees.feeName! ={feeName}  return id(siblingfees)',
-		cas: 'start cost=node({costId}) match cost<-[:costchild*]-ancestor where has(ancestor.{{prop}}) return id(ancestor)'
+		cas: 'start cost=node({costId}) match cost<-[:costchild*]-ancestor return cost.{{prop}}? as s, id(ancestor) as a, ancestor.{{prop}}? as aa'
 };
 
 exports.calcQuery = {
@@ -131,10 +131,16 @@ exports.calcQuery = {
 		ccf: 'start cost=node({costId}) match cost-[:costchild]->child, child-[:fee|feechild*]->childfees where child.type! = {type} and childfees.feeName! = {feeName} return childfees.feeResult',
 		cs: 'start cost=node({costId}) match cost<-[:costchild]-parent, parent-[:costchild]->sibling where sibling <> cost and has(sibling.{{prop}}) return sibling.{{prop}}',
 		csf: 'start cost=node({costId}) match cost<-[:costchild]-parent, parent-[:costchild]->sibling, sibling-[:fee|feechild*]->siblingfees where sibling <> cost and siblingfees.feeName! ={feeName}  return siblingfees.feeResult',
-		cas: 'start cost=node({costId}) match cost<-[:costchild*]-ancestor where has(ancestor.{{prop}}) return ancestor.{{prop}}'
+		cas: 'start cost=node({costId}) match cost<-[:costchild*]-ancestor return cost.{{prop}}? as s, collect(ancestor.{{prop}}?) as a'
 };
 
 exports.query2 = function(query, params, callback){
+	var matches = query.match(/({{[^}]*}})/g);
+	matches && matches.forEach(function(str){
+		var key = str.slice(2, -2);
+		query = query.replace(str, params[key]);
+	});
+	
 	db.query(query, params, callback);
 };
 
