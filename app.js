@@ -309,7 +309,7 @@ App.prototype.createGlj = function(parentId, callback) {
 // //////////////////////////////////////////////////////
 var app = new App();
 
-app.createDe(null, function(err, de){ 
+app.createDe(null, function(err, de){ //console.log(de.id);
 	async.times(4, function(n, next){
 		app.createGlj(de.id, function(err, glj){
 			next(err, glj.id);

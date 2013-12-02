@@ -66,6 +66,42 @@ start n=node(1078)
 match n<-[:ref*]-fees, fees-[:ref]->f 
 return fees, f
 
+//cost-fees
+start n=node({id}) 
+match n-[:fee|feechild*]->fees 
+where fees.feeExpr=~".*cas\\(key1\\)|c\\(key1\\).*"
+return fees
+
+//parent-fees
+start cost=node({id}) 
+match 
+cost<-[:costchild]-parent, 
+parent-[:fee|feechild*]->parentfees 
+where parentfees.feeExpr=~".*cc\\(type,prop\\).*" 
+
+//sibling-fees
+start cost=node({id}) 
+match cost<-[:costchild]-parent, parent-[:costchild]->sibling, 
+sibling-[:fee|feechild*]->siblingfees where sibling <> cost and siblingfees.feeExpr =~ ".*cs\\({{prop}}\\).*" 
+return siblingfees
+
+//descendant_fees
+start cost=node({id}) 
+match cost-[:costchild*]->descendant, 
+descendant-[:fee|feechild*]->descendantfees 
+where descendantfees.feeExpr =~ ".*cas\\({{prop}}\\).*" 
+return descendantfees
+
+//delete cost
+start cost=node(40078)
+match cost-[:fee|feechild|costchild*]->m
+with cost, m MATCH m-[r?]-()
+delete cost, m, r
+
+//get all nodes adn rels
+start n=node(*), r=rel(*)
+return n, r
+
 
 
 

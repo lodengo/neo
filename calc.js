@@ -40,28 +40,32 @@ Calc.prototype.calc = function(callback){
 	});
 }
 
-Calc.start = function(ids, callback){
-	util.query2(util.cypher.fees_adj, {id: ids}, function(err, rows){
+Calc.start = function(ids, callback){	
+	util.query2(util.cypher.fees_adj1, {id: ids}, function(err, rows){
 		var fees = rows.map(function(row){return row.fid});
-		
-		var uvs = rows.map(function(row){
-			return {u: row.fid, v: fees.intersect(row.fids)};
+		util.query2(util.cypher.fees_adj, {id: ids}, function(err, rows2){			
+			fees = fees.concat(rows2.map(function(row){return row.fid}));
+			
+			var urows = rows.concat(rows2);
+			var uvs = urows.map(function(row){
+				return {u: row.fid, v: fees.intersect(row.fids)};
+			});
+			
+			var toposort = new TopoSort(uvs);
+			fees = toposort.sort();	
+			
+			if(fees.cycle){
+				callback(null);
+			}else{
+				async.eachSeries(fees.order, function(feeid, cb){
+					Fee.get(parseInt(feeid), function(err, fee){
+						var calc = new Calc(fee);
+						calc.calc(cb);
+					});				
+				}, callback);			
+			}		
 		});
-		
-		var toposort = new TopoSort(uvs);
-		fees = toposort.sort();	
-		
-		if(fees.cycle){
-			callback(null);
-		}else{
-			async.eachSeries(fees.order, function(feeid, cb){
-				Fee.get(parseInt(feeid), function(err, fee){
-					var calc = new Calc(fee);
-					calc.calc(cb);
-				});				
-			}, callback);			
-		}		
-	});
+	});	
 }
 
 
