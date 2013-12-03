@@ -1,6 +1,7 @@
 var Api = require("./api.js");
 var async = require('async');
 var Cost = require('./cost.js');
+var util = require("./util.js");
 
 var fees = {
 	'ztgc' : [ { //整体工程
@@ -414,38 +415,43 @@ function arrPush(arr, e, n){
 	}
 }
 
-function step(actor, actions, i){
+function step(actor, actions, i, callback){
 	if(i == actions.length){
-		console.log(['done']);
+		callback();
 	}else{
 		var act = actions[i];
 		console.log("step " + i + ": " + act);
 		actor[act](function(err, res){			
-			step(actor, actions, i+1);
+			step(actor, actions, i+1, callback);
 		});	
 	}	
 }
 
-function run(){	
+function run(callback){	
 	var actions = ['createZtgc'];
 	arrPush(actions, "createDXgc", 2);
 	arrPush(actions, "createDwgc", 4);
 	arrPush(actions, "createFbfx", 8);
 	
 	var ops = [];
-	arrPush(ops, "createQd", 100);	
-	arrPush(ops, "createDe", 300);	
-	arrPush(ops, "createGlj", 1000);	
+	arrPush(ops, "createQd", 10);	
+	arrPush(ops, "createDe", 20);	
+	arrPush(ops, "createGlj", 30);	
 	//arrPush(actions, "modGcl", 5);
 	//arrPush(actions, "delNode", 2);
 		
 	actions = actions.concat(ops.shuffle());
 	
 	var actor = new Tester();
-	step(actor, actions, 0);
+	step(actor, actions, 0, callback);
 }
 
-run();
+run(function(){
+	console.log('done, info:');
+	console.log(util.stats.info());
+});
+
+
 
 
 

@@ -158,24 +158,72 @@ exports.calcQuery = {
 		cas: 'start cost=node({costId}) match cost<-[:costchild*]-ancestor return cost.{{prop}}? as s, collect(ancestor.{{prop}}?) as a'
 };
 
-exports.query2 = function(query, params, callback){
+function md5(str){
+    var hash = require('crypto').createHash('md5');
+    return hash.update(str+"").digest('hex');
+}
+var stats = {
+		count:0,
+		total:0,
+		max:0,
+		qst:{},
+		add: function(s, q){
+			var t = new Date() - s;			
+			this.count++;
+			this.total += t;
+			if(t > this.max){
+				this.max = t;
+			}
+			var md5q = md5(q);
+			if(! this.qst.hasOwnProperty(md5q)){
+				this.qst[md5q] = {q:q, count:1, total:1, max:t};
+			}else{
+				var s = this.qst[md5q];
+				s.count++;
+				s.total+=t;
+				if(t > s.max){
+					s.max = t;
+				}
+			}			
+		},		
+		info: function(){
+			var me = this;
+			var ss = [];
+			Object.keys(me.qst).forEach(function(k){
+				var e = me.qst[k]; e.avg = e.total/e.count;
+				ss.push(e);
+			});
+			ss.sort(function(a, b){return b.avg - a.avg});
+			return {
+				count:this.count,
+				total:this.total,
+				max:this.max,
+				avg: this.total/this.count,
+				ss:ss
+			};
+		}
+}; exports.stats = stats;
+
+exports.query2 = function(query, params, callback){var s=new Date();
 	var matches = query.match(/({{[^}]*}})/g);
 	matches && matches.forEach(function(str){
 		var key = str.slice(2, -2);
 		query = query.replace(str, params[key]);
 	});
 	
-	db.query(query, params, callback);
+	db.query(query, params, function(err, res){ stats.add(s, query);
+		callback(err, res);
+	});
 };
 
-exports.query = function(query, params, callback){
+exports.query = function(query, params, callback){var s=new Date();
 	var matches = query.match(/({{[^}]*}})/g);
 	matches && matches.forEach(function(str){
 		var key = str.slice(2, -2);
 		query = query.replace(str, params[key]);
 	});
 	
-	db.query(query, params, function(err, rows){
+	db.query(query, params, function(err, rows){ stats.add(s, query);
 		if(err){
 			callback(err, []);
 		}else{
