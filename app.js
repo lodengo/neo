@@ -312,6 +312,7 @@ Tester.prototype.createDwgc = function(callback) {
 	};
 	var fs = fees['dwgc'];
 	var parentId =  me.dxgc.random();
+	if(!parentId){return callback(null);}
 	Api.createCost(dwgc, fs, parentId, function(err, cost){
 		me.dwgc.push(cost.id);
 		callback(null, cost);
@@ -325,6 +326,7 @@ Tester.prototype.createFbfx = function(callback) {
 	};
 	var fs = fees['fbfx'];
 	var parentId =  me.dwgc.random();
+	if(!parentId){return callback(null);}
 	Api.createCost(fbfx, fs, parentId, function(err, cost){
 		me.fbfx.push(cost.id);
 		callback(null, cost);
@@ -340,6 +342,7 @@ Tester.prototype.createQd = function(callback){
 	
 	var fs = fees['qd'];
 	var parentId = me.fbfx.random();
+	if(!parentId){return callback(null);}
 	Api.createCost(qd, fs, parentId, function(err, cost){
 		me.qd.push(cost.id);
 		callback(null, cost);
@@ -354,6 +357,7 @@ Tester.prototype.createDe = function(callback) {
 	};
 	var fs = fees['de'];
 	var parentId =  me.qd.random();
+	if(!parentId){return callback(null);}
 	Api.createCost(de, fs, parentId, function(err, cost){
 		me.de.push(cost.id);
 		callback(null, cost);
@@ -370,6 +374,7 @@ Tester.prototype.createGlj = function(callback) {
 	};
 	var fs = fees['glj'];
 	var parentId =  me.de.random();
+	if(!parentId){return callback(null);}
 	Api.createCost(glj, fs, parentId, function(err, cost){
 		me.glj.push(cost.id);
 		callback(null, cost);
@@ -381,6 +386,7 @@ Tester.prototype.modGcl = function(callback){
 	var me = this;
 	var modQd = Math.random() < 0.5;
 	var nid = modQd ? me.qd.random() : me.de.random();
+	if(!nid){return callback(null);}
 	var gcl = Math.random() * 1000;
 	Api.updateCost(nid, 'quantity', gcl, function(err, res){
 		callback(err);
@@ -392,6 +398,7 @@ Tester.prototype.delNode = function(callback){
 	var me = this;
 	var delQd = Math.random() < 0.5;
 	var nid = delQd ? me.qd.random() : me.de.random();
+	if(!nid){return callback(null);}
 	Api.deleteCost(nid, function(err, res){
 		callback(err);
 	});
@@ -424,12 +431,16 @@ function run(){
 	arrPush(actions, "createDXgc", 2);
 	arrPush(actions, "createDwgc", 4);
 	arrPush(actions, "createFbfx", 8);
-	arrPush(actions, "createQd", 100);
-	arrPush(actions, "createDe", 300);	
-	arrPush(actions, "createGlj", 1000);	
+	
+	var ops = [];
+	arrPush(ops, "createQd", 100);	
+	arrPush(ops, "createDe", 300);	
+	arrPush(ops, "createGlj", 1000);	
 	//arrPush(actions, "modGcl", 5);
 	//arrPush(actions, "delNode", 2);
 		
+	actions = actions.concat(ops.shuffle());
+	
 	var actor = new Tester();
 	step(actor, actions, 0);
 }
