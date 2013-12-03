@@ -21,7 +21,7 @@ Object.defineProperty(Cost.prototype, 'type', {
 Cost.prototype.update = function(prop, value, callback){
 	var me = this;
 	var id = me.id;
-	var hasProp = this._node.data.hasOwnProperty(property);
+	var hasProp = this._node.data.hasOwnProperty(prop);
 	var valueNotNull = (value !== undefined) && (value !== null);
 	
 	if(hasProp && value == me._node.data[prop]){// value not change, do nothing
@@ -64,11 +64,11 @@ Cost.prototype.feesMayRefMeAndMyfees = function(callback){
 	util.query(util.cypher.cost_fees, {id: costId}, function(err, myfees){
 		util.query(util.cypher.parent_ref_fees, {id: costId, type:type}, function(err, parentfees){
 			util.query(util.cypher.sibling_ref_fees, {id: costId}, function(err, siblingfees){
-				util.query(util.cypher.descendant_ref_fees, {id: costId}, function(err, descendantfees){
-					var fees = myfees.concat(parentfees, siblingfees, descendantfees);
+				//util.query(util.cypher.descendant_ref_fees, {id: costId}, function(err, descendantfees){
+					var fees = myfees.concat(parentfees, siblingfees);//, descendantfees);
 					fees = fees.unique();
 					async.map(fees, function(nfee, cb){cb(null, new Fee(nfee));}, callback);
-				});
+				//});
 			});
 		});
 	});

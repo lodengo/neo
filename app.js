@@ -1,31 +1,25 @@
 var Api = require("./api.js");
 var async = require('async');
-var neo4j = require('neo4j');
-var db = new neo4j.GraphDatabase('http://localhost:7474');
-var Cost = require("./cost.js");
-var Fee = require("./fee.js");
-var Ref = require("./ref.js");
-var Calc = require("./calc.js");
-var util = require("./util.js");
+var Cost = require('./cost.js');
 
 var fees = {
 	'ztgc' : [ { //整体工程
 		feeName : '单项工程费用合计',
-		feeExpr : '',
+		feeExpr : 'sum(ccf(单项工程,工程总造价))',
 		feeResult : '0'
 	}, {
 		feeName : '整体工程费用合计',
-		feeExpr : '',
+		feeExpr : '0',
 		feeResult : '0'
 	}, {
 		feeName : '工程总造价',
-		feeExpr : '',
+		feeExpr : 'cf(单项工程费用合计)+cf(整体工程费用合计)',
 		feeResult : '0'
 	} ],
 	'dxgc' : [ // 单项工程
 			{
 				feeName : '单位工程工程费合计',
-				feeExpr : '300+400*2-50',
+				feeExpr : 'sum(ccf(单位工程,工程总造价))',
 				feeResult : '0'
 			},
 			{
@@ -45,7 +39,7 @@ var fees = {
 						},
 						{
 							feeName : '规费',
-							feeExpr : 'cf(工程排污费))+cf(社会保障费)+cf(住房公积金)+cf(河道管理费)',
+							feeExpr : 'cf(工程排污费)+cf(社会保障费)+cf(住房公积金)+cf(河道管理费)',
 							feeResult : '0',
 							fee : [
 									{
@@ -87,7 +81,7 @@ var fees = {
 	'dwgc' : [ // 单位工程
 			{
 				feeName : '分部分项工程量清单费用',
-				feeExpr : '0',
+				feeExpr : 'sum(ccf(分部分项,综合合价))',
 				feeResult : '0'
 			},
 			{
@@ -143,64 +137,64 @@ var fees = {
 			} ],
 	'fbfx' : [ { // 分部分项
 		feeName : '人工费合价',
-		feeExpr : '',
+		feeExpr : 'sum(ccf(清单,人工费合价))',
 		feeResult : '0'
 	}, {
 		feeName : '材料费合价',
-		feeExpr : '',
+		feeExpr : 'sum(ccf(清单,材料费合价))',
 		feeResult : '0'
 	}, {
 		feeName : '机械费合价',
-		feeExpr : '',
+		feeExpr : 'sum(ccf(清单,机械费合价))',
 		feeResult : '0'
 	}, {
 		feeName : '直接费合价',
-		feeExpr : '',
+		feeExpr : 'sum(ccf(清单,直接费合价))',
 		feeResult : '0'
 	}, {
 		feeName : '综合合价',
-		feeExpr : '',
+		feeExpr : 'sum(ccf(清单,综合合价))',
 		feeResult : '0'
 	} ],
 	'qd' : [ { // 清单
 		feeName : '人工费',
-		feeExpr : '',
+		feeExpr : 'cf(人工费合价)/c(quantity)',
 		feeResult : '0'
 	}, {
 		feeName : '人工费合价',
-		feeExpr : '',
+		feeExpr : 'sum(ccf(定额,人工费合价))',
 		feeResult : '0'
 	}, {
 		feeName : '材料费',
-		feeExpr : '',
+		feeExpr : 'cf(材料费合价)/c(quantity)',
 		feeResult : '0'
 	}, {
 		feeName : '材料费合价',
-		feeExpr : '',
+		feeExpr : 'sum(ccf(定额,材料费合价))',
 		feeResult : '0'
 	}, {
 		feeName : '机械费',
-		feeExpr : '',
+		feeExpr : 'cf(机械费合价)/c(quantity)',
 		feeResult : '0'
 	}, {
 		feeName : '机械费合价',
-		feeExpr : '',
+		feeExpr : 'sum(ccf(定额,机械费合价))',
 		feeResult : '0'
 	}, {
 		feeName : '直接费',
-		feeExpr : '',
+		feeExpr : 'cf(人工费)+cf(材料费)+cf(机械费)',
 		feeResult : '0'
 	}, {
 		feeName : '直接费合价',
-		feeExpr : '',
+		feeExpr : 'cf(直接费)*c(quantity)',
 		feeResult : '0'
 	}, {
 		feeName : '综合单价',
-		feeExpr : '',
+		feeExpr : 'cf(综合合价)/c(quantity)',
 		feeResult : '0'
 	}, {
 		feeName : '综合合价',
-		feeExpr : '',
+		feeExpr : 'sum(ccf(定额,综合合价))',
 		feeResult : '0'
 	} ],
 	'de' : [ // 定额
@@ -276,27 +270,98 @@ var fees = {
 	} ]
 };
 // ////////////////////////////////////////////
-function App() {
-
+function Tester() {
+	this.ztgc = 0; //整体工程id
+	this.dxgc = []; //单项工程ids
+	this.dwgc = []; //单位工程ids
+	this.fbfx = []; //分部分项ids	
+	this.qd = []; //清单ids
+	this.de = []; //定额ids
+	this.glj = []; //工料机ids
 }
 
-App.prototype.createDwgc = function(parentId, callback) {
+Tester.prototype.createZtgc = function(callback) {
+	var me = this;
+	var ztgc = {
+		type : '整体工程'
+	};
+	var fs = fees['ztgc'];
+	Api.createCost(ztgc, fs, null, function(err, cost){
+		me.ztgc = cost.id;
+		callback(null, cost);
+	});
+}
+
+Tester.prototype.createDXgc = function(callback) {
+	var me = this;
+	var parentId = me.ztgc;
+	var dxgc = {
+		type : '单项工程'
+	};
+	var fs = fees['dxgc'];	
+	Api.createCost(dxgc, fs, parentId, function(err, cost){
+		me.dxgc.push(cost.id);
+		callback(null, cost);
+	});
+}
+
+Tester.prototype.createDwgc = function(callback) {
+	var me = this;
 	var dwgc = {
 		type : '单位工程'
 	};
 	var fs = fees['dwgc'];
-	Api.createCost(dwgc, fs, parentId, callback);
+	var parentId =  me.dxgc.random();
+	Api.createCost(dwgc, fs, parentId, function(err, cost){
+		me.dwgc.push(cost.id);
+		callback(null, cost);
+	});
 }
-App.prototype.createDe = function(parentId, callback) {
+
+Tester.prototype.createFbfx = function(callback) {
+	var me = this;
+	var fbfx = {
+		type : '分部分项'
+	};
+	var fs = fees['fbfx'];
+	var parentId =  me.dwgc.random();
+	Api.createCost(fbfx, fs, parentId, function(err, cost){
+		me.fbfx.push(cost.id);
+		callback(null, cost);
+	});
+}
+
+Tester.prototype.createQd = function(callback){
+	var me = this;
+	var qd = {
+			type: '清单',
+			quantity: Math.random() * 1000
+	};
+	
+	var fs = fees['qd'];
+	var parentId = me.fbfx.random();
+	Api.createCost(qd, fs, parentId, function(err, cost){
+		me.qd.push(cost.id);
+		callback(null, cost);
+	});
+}
+
+Tester.prototype.createDe = function(callback) {
+	var me = this;
 	var de = {
 		type : '定额',
 		quantity: Math.random() * 1000
 	};
 	var fs = fees['de'];
-	Api.createCost(de, fs, parentId, callback);
+	var parentId =  me.qd.random();
+	Api.createCost(de, fs, parentId, function(err, cost){
+		me.de.push(cost.id);
+		callback(null, cost);
+	});
 }
 
-App.prototype.createGlj = function(parentId, callback) {
+Tester.prototype.createGlj = function(callback) {
+	var me = this;
 	var types = [ "人工", "材料", "机械" ];
 	var glj = {
 		'type' : types[Math.floor(Math.random() * 10) % 3],
@@ -304,20 +369,72 @@ App.prototype.createGlj = function(parentId, callback) {
 		'content' : Math.random()
 	};
 	var fs = fees['glj'];
-	Api.createCost(glj, fs, parentId, callback);
+	var parentId =  me.de.random();
+	Api.createCost(glj, fs, parentId, function(err, cost){
+		me.glj.push(cost.id);
+		callback(null, cost);
+	});
+}
+
+//修改工程量
+Tester.prototype.modGcl = function(callback){
+	var me = this;
+	var modQd = Math.random() < 0.5;
+	var nid = modQd ? me.qd.random() : me.de.random();
+	var gcl = Math.random() * 1000;
+	Api.updateCost(nid, 'quantity', gcl, function(err, res){
+		callback(err);
+	});
+}
+
+//删除清单或定额
+Tester.prototype.delNode = function(callback){
+	var me = this;
+	var delQd = Math.random() < 0.5;
+	var nid = delQd ? me.qd.random() : me.de.random();
+	Api.deleteCost(nid, function(err, res){
+		callback(err);
+	});
 }
 // //////////////////////////////////////////////////////
-var app = new App();
+function arrPush(arr, e, n){
+	if(n){
+		for(var i = 0; i < n; i++){
+			arr.push(e);
+		}
+	}else{
+		arr.push(e);
+	}
+}
 
-app.createDe(null, function(err, de){ //console.log(de.id);
-	async.times(4, function(n, next){
-		app.createGlj(de.id, function(err, glj){
-			next(err, glj.id);
-		});
-	}, function(err, gljs){
-		console.log(de.id, gljs);
-	});	
-});
+function step(actor, actions, i){
+	if(i == actions.length){
+		console.log(['done']);
+	}else{
+		var act = actions[i];
+		console.log("step " + i + ": " + act);
+		actor[act](function(err, res){			
+			step(actor, actions, i+1);
+		});	
+	}	
+}
+
+function run(){	
+	var actions = ['createZtgc'];
+	arrPush(actions, "createDXgc", 2);
+	arrPush(actions, "createDwgc", 4);
+	arrPush(actions, "createFbfx", 8);
+	arrPush(actions, "createQd", 100);
+	arrPush(actions, "createDe", 300);	
+	arrPush(actions, "createGlj", 1000);	
+	//arrPush(actions, "modGcl", 5);
+	//arrPush(actions, "delNode", 2);
+		
+	var actor = new Tester();
+	step(actor, actions, 0);
+}
+
+run();
 
 
 

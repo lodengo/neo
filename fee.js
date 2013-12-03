@@ -77,9 +77,9 @@ Fee.prototype.buildRef = function(callback){
 	var me = this;
 	me.refedNodeids(function(err, refedNodes){ 
 		me.refNodeidsByExpr(function(err, refByExpr){
-			console.log(['ref', me.costId, me.id, me.feeName, refedNodes, refByExpr]);
+			//console.log(['ref', me.costId, me.id, me.feeName, refedNodes, refByExpr]);
 			me.unRefNodes(refedNodes.diff(refByExpr), function(err){
-				me.refNodes(refByExpr.diff(refedNodes), callback)
+				me.refNodes(refByExpr.diff(refedNodes), callback);
 			});
 		});
 	});

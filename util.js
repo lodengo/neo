@@ -69,6 +69,18 @@ Array.prototype.diff =
     }
     return a.unique();
  };
+ 
+ Array.prototype.random = function() {
+	 var len = this.length;
+	 var idx = Math.floor(Math.random() * len);
+	 return this[idx];
+ };
+ 
+ Array.prototype.shuffle = function() {
+	 var o = this;
+	 for(var j, x, i = o.length; i; j = Math.floor(Math.random() * i), x = o[--i], o[i] = o[j], o[j] = x);
+	    return o;
+ };
  ////////////////////////////////////////////////////
 //费用表达式引用关系
 exports.refReg = new RegExp(['f', 'c', 'cf', 'cc', 'ccf', 'cs', 'csf', 'cas'].join('\\([^\\)]*\\)|')+'\\([^\\)]*\\)', 'g');

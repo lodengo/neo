@@ -32,9 +32,16 @@ Calc.prototype.calc = function(callback){
 			cb(null);
 		}		
 	}, function(err){		
-		var feeResult = math.eval(feeExpr); 
-		feeResult = feeResult.toFixed(2);
-		console.log(['calc', me._fee.costId, me._fee.id, me._fee.feeName, feeExpr, feeResult]);
+		var feeResult = 0; 
+		try{
+			feeResult = math.eval(feeExpr); 
+			console.log(me._fee.costType+'.'+me._fee.feeName+'='+feeResult);
+		}
+		catch(e){
+			feeResult = 0; 
+			//console.log(['calc', me._fee.costId, me._fee.id, me._fee.costType, me._fee.feeName, feeExpr, feeResult]);
+		}		
+		feeResult = feeResult.toFixed(2);		
 		me._fee.feeResult = feeResult;
 		util.query2(util.cypher.update_fee_result, {id: me._fee.id, result:feeResult}, callback);		
 	});
@@ -42,6 +49,9 @@ Calc.prototype.calc = function(callback){
 
 Calc.start = function(ids, callback){	
 	util.query2(util.cypher.fees_adj1, {id: ids}, function(err, rows){
+		if(err){			
+			return callback(null);
+		}
 		var fees = rows.map(function(row){return row.fid});
 		util.query2(util.cypher.fees_adj, {id: ids}, function(err, rows2){			
 			fees = fees.concat(rows2.map(function(row){return row.fid}));
@@ -77,14 +87,14 @@ Calc.prototype.f = function(pName, callback){
 Calc.prototype.c = function(pName, callback){
 	var costId = this._fee.costId;
 	util.query(util.calcQuery.c, {costId: costId, prop:pName}, function(err, result){
-		callback(null, result[0]);
+		callback(err, result[0]);
 	});
 }
 
 Calc.prototype.cf = function(feeName, callback){	
 	var costId = this._fee.costId;
 	util.query(util.calcQuery.cf, {costId: costId, feeName:feeName}, function(err, result){
-		callback(null, result[0]);
+		callback(err, result[0]);
 	});	
 }
 
