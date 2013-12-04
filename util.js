@@ -141,6 +141,7 @@ exports.cypher = {
 
 exports.refQuery = {
 		cf: 'start cost=node({costId}) match cost-[:fee|feechild*]->fees where fees.feeName! ={feeName} return id(fees)',
+		//cf: 'start fees=node:node_auto_index(costId={costId}) where fees.feeName ={feeName} return id(fees)',		
 		cc: 'start cost=node({costId}) match cost-[:costchild]->child where child.type! = {type} and has(child.{{prop}}) return id(child)',
 		ccf: 'start cost=node({costId}) match cost-[:costchild]->child, child-[:fee|feechild*]->childfees where child.type! = {type} and childfees.feeName! = {feeName} return id(childfees)',
 		cs: 'start cost=node({costId}) match cost<-[:costchild]-parent, parent-[:costchild]->sibling where sibling <> cost and has(sibling.{{prop}}) return id(sibling)',
@@ -176,13 +177,12 @@ var stats = {
 			}
 			var md5q = md5(q);
 			if(! this.qst.hasOwnProperty(md5q)){
-				this.qst[md5q] = {q:q, count:1, total:1, max:t};
-			}else{
-				var s = this.qst[md5q];
-				s.count++;
-				s.total+=t;
-				if(t > s.max){
-					s.max = t;
+				this.qst[md5q] = {q:q, count:1, total:t, max:t};
+			}else{				
+				this.qst[md5q].count+=1;
+				this.qst[md5q].total+=t;
+				if(t > this.qst[md5q].max){
+					this.qst[md5q].max = t;
 				}
 			}			
 		},		
