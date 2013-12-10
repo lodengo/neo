@@ -415,13 +415,30 @@ function arrPush(arr, e, n){
 	}
 }
 
+var stats = {
+		totalms:0,
+		steps:0,
+		avgms:0,
+		maxms:0,
+		finish: function(start, action){
+			var me = this;
+			var ms = new Date() - start;
+			me.totalms += ms;
+			me.steps += 1;
+			me.avgms = me.totalms/me.steps;
+			me.maxms = ms > me.maxms ? ms : me.maxms;
+		}
+};
+
 function step(actor, actions, i, callback){
+	var start = new Date();
 	if(i == actions.length){
 		callback();
 	}else{
 		var act = actions[i];
 		console.log("step " + i + ": " + act);
-		actor[act](function(err, res){			
+		actor[act](function(err, res){	
+			stats.finish(start, act);
 			step(actor, actions, i+1, callback);
 		});	
 	}	
@@ -434,9 +451,9 @@ function run(callback){
 	arrPush(actions, "createFbfx", 8);
 	
 	var ops = [];
-	arrPush(ops, "createQd", 10);	
-	arrPush(ops, "createDe", 20);	
-	arrPush(ops, "createGlj", 30);	
+	arrPush(ops, "createQd", 16);	
+	arrPush(ops, "createDe", 32);	
+	arrPush(ops, "createGlj", 100);	
 	//arrPush(actions, "modGcl", 5);
 	//arrPush(actions, "delNode", 2);
 		
@@ -448,7 +465,7 @@ function run(callback){
 
 run(function(){
 	console.log('done, info:');
-	console.log(util.stats.info());
+	console.log(stats);
 });
 
 
