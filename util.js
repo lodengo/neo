@@ -82,10 +82,6 @@ Array.prototype.diff =
 	    return o;
  };
  ////////////////////////////////////////////////////
-//费用表达式引用关系
-exports.refReg = new RegExp(['f', 'c', 'cf', 'cc', 'ccf', 'cs', 'csf', 'cas'].join('\\([^\\)]*\\)|')+'\\([^\\)]*\\)', 'g');
-
-//费用表达式--计算扩展 see: https://github.com/josdejong/mathjs/blob/master/docs/extend.md
 exports.math_extend = {
 		sum: function(args){			
 			var total = 0;
@@ -94,103 +90,9 @@ exports.math_extend = {
 			return total;
 		}
 };
-//cypher query
-exports.cypher = {
-		node_byid: 'start node=node({id}) return node',
-		cost_parent: 'start n=node({id}) match n<-[:costchild]-parent return parent',
-		cost_ancestor: 'start n=node({id}) match n<-[:costchild*]-ancestor return ancestor',
-		cost_child: 'start n=node({id}) match n-[:costchild]->child return child',
-		cost_child_bytype: 'start n=node({id}) match n-[:costchild]->child where child.type! = {type} return child',
-		cost_descendant : 'start n=node({id}) match n-[:costchild*]->descendant return descendant',
-		cost_sibling : 'start n=node({id}) match n<-[:costchild]-parent, parent-[:costchild]->sibling where sibling <> n return sibling',
-		cost_fees: 'start n=node({id}) match n-[:fee|feechild*]->fees return fees',
-		cost_fees_byname: 'start n=node({id}) match n-[:fee|feechild*]->fees where fees.feeName ! ={feeName} return fees',
-		cost_parent_fees: 'start n=node({id}) match n<-[:costchild]-parent, parent-[:fee|feechild*]->parentfees return parent, parentfees',
-		cost_ancestor_fees : 'start n=node({id}) match n<-[:costchild*]-ancestor, ancestor-[:fee|feechild*]->ancestorfees return ancestorfees',
-		cost_child_fees: 'start n=node({id}) match n-[:costchild]->child, child-[:fee|feechild*]->childfees return childfees',
-		cost_childbytype_feesbyname: 'start n=node({id}) match n-[:costchild]->child, child-[:fee|feechild*]->childfees where child.type! = {type} and childfees.feeName! = {feeName} return child, childfees',
-		cost_descendant_fees: 'start n=node({id}) match n-[:costchild*]->descendant, descendant-[:fee|feechild*]->descendantfees return descendantfees',
-		cost_sibling_fees: 'start n=node({id}) match n<-[:costchild]-parent, parent-[:costchild]->sibling, sibling-[:fee|feechild*]->siblingfees where sibling <> n return siblingfees',
-		fee_byid: 'start fee=node({id}) match cost-[:fee|feechild*]->fee return fee, cost',
-		fees_adj1: 'start n=node({id}) match n-[:ref]->f return id(n) as fid, collect(id(f)) as fids',
-		fees_adj: 'start n=node({id}) match n<-[:ref*]-fees, fees-[:ref]->f return id(fees) as fid, collect(id(f)) as fids',
-		fee_ref_nodes: 'start me=node({id}), to=node({nodes}) create me-[r:ref]->to',
-		fee_unref_node: 'start me=node({id}), to=node({to}) match me-[r:ref]->to delete r',
-		fee_refed_nodeids: 'start fee=node({id}) match fee-[:ref]->node return id(node) as ids',
-		create_node: 'create (node {data}) return node',
-		create_cost_child: 'start parent=node({parentId}) create parent-[:costchild]->(node {data}) return node',
-		create_fee_child: 'start parent=node({parentId}) create parent-[:feechild]->(node {data}) return node',
-		create_cost_fee: 'start cost=node({costId}) create cost-[:fee]->(node {data}) return node',
-		update_fee_result: 'start fee=node({id}) set fee.feeResult={result}',
-		parent_ref_fees: 'start cost=node({id}) match cost<-[:costchild]-parent, parent-[:fee|feechild*]->parentfees where parentfees.feeExpr =~ ".*cc.?\\\\({{type}}.*" return parentfees',
-		sibling_ref_fees: 'start cost=node({id}) match cost<-[:costchild]-parent, parent-[:costchild]->sibling, sibling-[:fee|feechild*]->siblingfees where sibling <> cost and siblingfees.feeExpr =~ ".*cs.*" return siblingfees',
-		descendant_ref_fees: 'start cost=node({id}) match cost-[:costchild*]->descendant, descendant-[:fee|feechild*]->descendantfees where descendantfees.feeExpr =~ ".*cas.*" return descendantfees',
-		set_node_property: 'start node=node({id}) set node.{{property}}={value}',
-		delete_node_property: 'start node=node({id}) delete node.{{property}}',
-		fees_mayref_prop: 'start n=node({id}) match n-[:fee|feechild*]->fees where fees.feeExpr=~".*cas\\\\({{prop}}\\\\)|c\\\\({{prop}}\\\\).*" return fees',
-		parent_fees_mayref_prop: 'start cost=node({id}) match cost<-[:costchild]-parent, parent-[:fee|feechild*]->parentfees where parentfees.feeExpr=~".*cc\\\\({{type}},{{prop}}\\\\).*" return parentfees',
-		sibling_fees_mayref_prop: 'start cost=node({id}) match cost<-[:costchild]-parent, parent-[:costchild]->sibling, sibling-[:fee|feechild*]->siblingfees where sibling <> cost and siblingfees.feeExpr =~ ".*cs\\\\({{prop}}\\\\).*" return siblingfees',
-		descendant_fees_mayref_prop: 'start cost=node({id}) match cost-[:costchild*]->descendant, descendant-[:fee|feechild*]->descendantfees where descendantfees.feeExpr =~ ".*cas\\\\({{prop}}\\\\).*" return descendantfees',
-		delete_cost: 'start cost=node({id})	match cost-[:fee|feechild|costchild*]->m with cost, m MATCH m-[r?]-(), cost-[r1?]-() delete cost, m, r, r1',	
-		cost_fees_mayref_fee: 'start cost=node({costId}) match cost-[:fee|feechild*]->fees where fees.feeExpr=~ ".*cf\\\\({{feeName}}\\\\).*" return fees',
-		parent_fees_mayref_fee: 'start cost=node({costId}) match cost<-[:costchild]-parent, parent-[:fee|feechild*]->parentfees where parentfees.feeExpr =~ ".*ccf\\\\({{type}},{{feeName}}\\\\).*" return parentfees',
-		sibling_fees_mayref_fee: 'start cost=node({costId}) match cost<-[:costchild]-parent, parent-[:costchild]->sibling, sibling-[:fee|feechild*]->siblingfees where sibling <> cost and siblingfees.feeExpr =~ ".*csf\\\\({{feeName}}\\\\).*" return siblingfees',
-		delete_fee: 'start fee=node({id}) match fee-[:feechild*]->m with fee, m match m-[r?]-(), fee-[:r1?]-() delete fee, m, r, r1',
-		
-};
 
-exports.refQuery = {
-		cf: 'start cost=node({costId}) match cost-[:fee|feechild*]->fees where fees.feeName! ={feeName} return id(fees)',
-		//cf: 'start fees=node:node_auto_index(costId={costId}) where fees.feeName ={feeName} return id(fees)',		
-		cc: 'start cost=node({costId}) match cost-[:costchild]->child where child.type! = {type} and has(child.{{prop}}) return id(child)',
-		ccf: 'start cost=node({costId}) match cost-[:costchild]->child, child-[:fee|feechild*]->childfees where child.type! = {type} and childfees.feeName! = {feeName} return id(childfees)',
-		cs: 'start cost=node({costId}) match cost<-[:costchild]-parent, parent-[:costchild]->sibling where sibling <> cost and has(sibling.{{prop}}) return id(sibling)',
-		csf: 'start cost=node({costId}) match cost<-[:costchild]-parent, parent-[:costchild]->sibling, sibling-[:fee|feechild*]->siblingfees where sibling <> cost and siblingfees.feeName! ={feeName}  return id(siblingfees)',
-		cas: 'start cost=node({costId}) match cost<-[:costchild*]-ancestor return cost.{{prop}}? as s, id(ancestor) as a, ancestor.{{prop}}? as aa'
-};
 
-exports.calcQuery = {
-		c: 'start cost=node({costId}) return cost.{{prop}}',
-		cf: 'start cost=node({costId}) match cost-[:fee|feechild*]->fees where fees.feeName! ={feeName} return fees.feeResult',
-		cc: 'start cost=node({costId}) match cost-[:costchild]->child where child.type! = {type} and has(child.{{prop}}) return child.{{prop}}',
-		ccf: 'start cost=node({costId}) match cost-[:costchild]->child, child-[:fee|feechild*]->childfees where child.type! = {type} and childfees.feeName! = {feeName} return childfees.feeResult',
-		cs: 'start cost=node({costId}) match cost<-[:costchild]-parent, parent-[:costchild]->sibling where sibling <> cost and has(sibling.{{prop}}) return sibling.{{prop}}',
-		csf: 'start cost=node({costId}) match cost<-[:costchild]-parent, parent-[:costchild]->sibling, sibling-[:fee|feechild*]->siblingfees where sibling <> cost and siblingfees.feeName! ={feeName}  return siblingfees.feeResult',
-		cas: 'start cost=node({costId}) match cost<-[:costchild*]-ancestor return cost.{{prop}}? as s, collect(ancestor.{{prop}}?) as a'
-};
 
-function md5(str){
-    var hash = require('crypto').createHash('md5');
-    return hash.update(str+"").digest('hex');
-}
 
-exports.query2 = function(query, params, callback){
-	var matches = query.match(/({{[^}]*}})/g);
-	matches && matches.forEach(function(str){
-		var key = str.slice(2, -2);
-		query = query.replace(str, params[key]);
-	});
-	
-	db.query(query, params, function(err, res){ 
-		callback(err, res);
-	});
-};
 
-exports.query = function(query, params, callback){
-	var matches = query.match(/({{[^}]*}})/g);
-	matches && matches.forEach(function(str){
-		var key = str.slice(2, -2);
-		query = query.replace(str, params[key]);
-	});
-	
-	db.query(query, params, function(err, rows){ 
-		if(err){
-			callback(err, []);
-		}else{
-			async.map(rows, function(row, cb){
-				var key = Object.keys(row)[0];
-				cb(null, row[key]);
-			}, callback);
-		}
-	});
-};
+

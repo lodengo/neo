@@ -1,11 +1,12 @@
 var async = require('async');
 var util = require("./util.js");
+var db = require("./db.js");
 
 var Ref = module.exports = function Ref(fee) {	
 	this._fee = fee;	
 }
 
-Ref.prototype.refNodesByExpr = function(callback){
+Ref.prototype.refToIdsByExpr = function(callback){
 	var me = this;
 	var feeExpr = me._fee.feeExpr;
 	var matches = feeExpr.match(util.refReg) || [];
@@ -35,40 +36,30 @@ Ref.prototype.c = function(pName, callback){
 
 Ref.prototype.cf = function(feeName, callback){	
 	var costId = this._fee.costId;
-	util.query(util.refQuery.cf, {costId: costId, feeName:feeName}, callback);		
+	db._CF(costId, feeName, true, callback);			
 }
 
 Ref.prototype.cc = function(costType, pName, callback){
 	var costId = this._fee.costId;
-	util.query(util.refQuery.cc, {costId: costId, type:costType, prop:pName}, callback);	
+	db._CC(costId, costType, pName, true, callback);	
 }
 
 Ref.prototype.ccf = function(costType, feeName, callback){
 	var costId = this._fee.costId;
-	util.query(util.refQuery.ccf, {costId: costId, type:costType, feeName:feeName}, callback);	
+	db._CCF(costId, costType, feeName, true, callback);		
 }
 
 Ref.prototype.cs = function(prop, callback){
 	var costId = this._fee.costId;
-	util.query(util.refQuery.cs, {costId: costId, prop:prop}, callback);	
+	db._CS(costId, prop, true, callback);		
 }
 
 Ref.prototype.csf = function(feeName, callback){
 	var costId = this._fee.costId;
-	util.query(util.refQuery.csf, {costId: costId, feeName:feeName}, callback);	
+	db._CSF(costId,  feeName, true, callback);	
 }
 
 Ref.prototype.cas = function(prop, callback){
 	var costId = this._fee.costId;
-	util.query2(util.refQuery.cas, {costId: costId, prop:prop}, function(err, rows){
-		for(var i = 0; i < rows.length; i++){
-			var row = rows[i];
-			if(row.s){
-				return callback(null, [costId]);
-			}
-			else if(row.aa){
-				return callback(null, [row.a]);
-			}
-		}
-	});	
+	db._CAS(costId,  prop, true, callback);
 }
