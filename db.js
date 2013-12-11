@@ -18,11 +18,59 @@ function data_col(err, data, col, one, callback){
 	}
 }
 
-var db = module.exports = function db() {
-
+function _md5(text) {
+	return require('crypto').createHash('md5').update(text).digest('hex');
 };
 
+var dbstats = {
+		totalms:0,
+		querys:0,
+		avgms:0,
+		maxms:0,
+		querystats:{},
+		finish: function(start, query){
+			var me = this;
+			var ms = new Date() - start;
+			me.totalms += ms;
+			me.querys += 1;
+			me.avgms = me.totalms/me.querys;
+			me.maxms = ms > me.maxms ? ms : me.maxms;
+			var md5 = _md5(query);
+			me.querystats[md5] = me.querystats[md5] ? {
+				query:query,
+				totalms: me.querystats[md5].totalms + ms,
+				querys: me.querystats[md5].querys + 1,
+				avgms: me.querystats[md5].totalms/me.querystats[md5].querys,
+				maxms: ms > me.querystats[md5].maxms ? ms : me.querystats[md5].maxms
+			} : {
+				query:query,
+				totalms: ms,
+				querys: 1,
+				avgms: ms,
+				maxms: ms
+			};
+		}
+};
+//////////////////////////////////////////////////
+var db = module.exports = function db() {
+	
+};
+
+db.stats = function(){
+	var querystats = Object.keys(dbstats.querystats).map(function(k){return dbstats.querystats[k]});
+	querystats.sort(function(a,b){return b.avgms - a.avgms});
+	
+	return {
+		//totalms: dbstats.totalms,
+		querys: dbstats.querys,
+		avgms: dbstats.avgms,
+		maxms: dbstats.maxms,
+		querystats: querystats
+	};
+}
+
 db.query = function(query, params, callback) {
+	var start = new Date()
 	var matches = query.match(/({{[^}]*}})/g);
 	matches && matches.forEach(function(str) {
 		var key = str.slice(2, -2);
@@ -31,6 +79,7 @@ db.query = function(query, params, callback) {
 	
 	_db.query(query, params, function(err, res){
 		if(err) console.dir([err, query]);
+		dbstats.finish(start, query);
 		callback(err, res);
 	});	
 };

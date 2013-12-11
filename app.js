@@ -2,6 +2,7 @@ var Api = require("./api.js");
 var async = require('async');
 var Cost = require('./cost.js');
 var util = require("./util.js");
+var db = require("./db.js");
 
 function Tester() {
 	this.ztgc = 0; //整体工程id
@@ -170,7 +171,7 @@ function step(actor, actions, i, callback){
 		var act = actions[i];
 		console.log("step " + i + ": " + act);
 		actor[act](function(err, res){	
-			stats.finish(start, act);
+			stats.finish(start, act); 
 			step(actor, actions, i+1, callback);
 		});	
 	}	
@@ -178,7 +179,7 @@ function step(actor, actions, i, callback){
 
 function run(callback){	
 	var actions = ['createZtgc'];
-	arrPush(actions, "createDXgc", 1);
+	arrPush(actions, "createDXgc", 2);
 	arrPush(actions, "createDwgc", 4);
 	arrPush(actions, "createFbfx", 8);	
 	arrPush(actions, "createQd", 16);	
@@ -194,6 +195,7 @@ function run(callback){
 run(function(){
 	console.log('done, info:');
 	console.log(stats);
+	console.log(db.stats());
 });
 
 
