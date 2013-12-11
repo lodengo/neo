@@ -28,13 +28,18 @@ db.query = function(query, params, callback) {
 		var key = str.slice(2, -2);
 		query = query.replace(str, params[key]);
 	});
-
-	_db.query(query, params, callback);
+	
+	_db.query(query, params, function(err, res){
+		if(err) console.dir([err, query]);
+		callback(err, res);
+	});	
 };
 
 db.setFeeResult = function(feeId, result, callback){
-	
-}
+	var query = 'start fee=node({id}) set fee.feeResult={result}';
+	this.query(query, {id:feeId, result:result}, callback);
+};
+
 db.getCost = function(id, callback){
 	var query = 'start node=node({id}) return node';
 	this.query(query, {id: id}, function(err, data){
@@ -58,56 +63,112 @@ db.insertCost = function(data, parentId, callback){
 }
 
 db.feesToFlushOnCostCreate = function(costId, type, callback){
-	util.query(util.cypher.cost_fees, {id: costId}, function(err, myfees){
-		util.query(util.cypher.parent_ref_fees, {id: costId, type:type}, function(err, parentfees){
-			util.query(util.cypher.sibling_ref_fees, {id: costId}, function(err, siblingfees){
-				//util.query(util.cypher.descendant_ref_fees, {id: costId}, function(err, descendantfees){
-					var fees = myfees.concat(parentfees, siblingfees);//, descendantfees);
-					fees = fees.unique();
-					async.map(fees, function(nfee, cb){cb(null, new Fee(nfee));}, callback);
-				//});
-			});
-		});
-	});
-}
-
-db.feesToFlushOnCostDelete = function(costId, type, callback){
-	util.query(util.cypher.parent_ref_fees, {id: costId, type:type}, function(err, parentfees){
-		util.query(util.cypher.sibling_ref_fees, {id: costId}, function(err, siblingfees){
-			var fees = parentfees.concat(siblingfees);
-			async.map(fees, function(nfee, cb){cb(null, new Fee(nfee));}, callback);
-		});
-	});
-}
-
-db.feesToFlushOnCostUpdate = function(costId, type, prop, callback){
-	util.query(util.cypher.fees_mayref_prop, {id: costId, prop:prop}, function(err, myfees){
-		util.query(util.cypher.parent_fees_mayref_prop, {id: costId, type:type, prop:prop}, function(err, parentfees){
-			util.query(util.cypher.sibling_fees_mayref_prop, {id: costId, prop:prop}, function(err, siblingfees){
-				util.query(util.cypher.descendant_fees_mayref_prop, {id: costId, prop:prop}, function(err, descendantfees){
-					var fees = myfees.concat(parentfees, siblingfees, descendantfees);
-					fees = fees.unique();
-					async.map(fees, function(nfee, cb){cb(null, new Fee(nfee));}, callback);
+	var me = this;
+	var query = 'start n=node({id}) match n-[:fee|feechild*]->fees return fees';
+	me.query(query, {id: costId}, function(err, data){
+		data_col(err, data, null, false, function(err, myfees){
+			query = 'start cost=node({id}) match cost<-[:costchild]-parent, parent-[:fee|feechild*]->parentfees where parentfees.feeExpr =~ ".*cc.?\\\\({{type}}.*" return parentfees';
+			me.query(query, {id: costId, type:type}, function(err, data){
+				data_col(err, data, null, false, function(err, parentfees){
+					query = 'start cost=node({id}) match cost<-[:costchild]-parent, parent-[:costchild]->sibling, sibling-[:fee|feechild*]->siblingfees where sibling <> cost and siblingfees.feeExpr =~ ".*cs.*" return siblingfees';
+					me.query(query, {id: costId}, function(err, data){
+						data_col(err, data, null, false, function(err, siblingfees){
+							var fees = myfees.concat(parentfees, siblingfees);							
+							callback(err, fees);
+						});
+					});
 				});
 			});
 		});
-		
+	});	
+}
+
+db.feesToFlushOnCostDelete = function(costId, type, callback){
+	var me = this;
+	var query = 'start cost=node({id}) match cost<-[:costchild]-parent, parent-[:fee|feechild*]->parentfees where parentfees.feeExpr =~ ".*cc.?\\\\({{type}}.*" return parentfees';
+	me.query(query, {id: costId, type:type}, function(err, data){
+		data_col(err, data, null, false, function(err, parentfees){
+			query = 'start cost=node({id}) match cost<-[:costchild]-parent, parent-[:costchild]->sibling, sibling-[:fee|feechild*]->siblingfees where sibling <> cost and siblingfees.feeExpr =~ ".*cs.*" return siblingfees';
+			me.query(query, {id: costId}, function(err, data){
+				data_col(err, data, null, false, function(err, siblingfees){
+					var fees = parentfees.concat(siblingfees);
+					callback(err, fees);
+				});
+			});
+		});
+	});	
+}
+
+db.feesToFlushOnCostUpdate = function(costId, type, prop, callback){
+	var me = this;
+	var query = 'start n=node({id}) match n-[:fee|feechild*]->fees where fees.feeExpr=~".*cas\\\\({{prop}}\\\\)|c\\\\({{prop}}\\\\).*" return fees';
+	me.query(query, {id: costId, prop:prop}, function(err, data){
+		data_col(err, data, null, false, function(err, myfees){
+			query = 'start cost=node({id}) match cost<-[:costchild]-parent, parent-[:fee|feechild*]->parentfees where parentfees.feeExpr=~".*cc\\\\({{type}},{{prop}}\\\\).*" return parentfees';
+			me.query(query, {id: costId, type:type, prop:prop}, function(err, data){
+				data_col(err, data, null, false, function(err, parentfees){
+					query = 'start cost=node({id}) match cost<-[:costchild]-parent, parent-[:costchild]->sibling, sibling-[:fee|feechild*]->siblingfees where sibling <> cost and siblingfees.feeExpr =~ ".*cs\\\\({{prop}}\\\\).*" return siblingfees';
+					me.query(query, {id: costId, prop:prop}, function(err, data){
+						data_col(err, data, null, false, function(err, siblingfees){
+							query = 'start cost=node({id}) match cost-[:costchild*]->descendant, descendant-[:fee|feechild*]->descendantfees where descendantfees.feeExpr =~ ".*cas\\\\({{prop}}\\\\).*" return descendantfees';
+							me.query(query, {id: costId, prop:prop}, function(err, data){
+								data_col(err, data, null, false, function(err, descendantfees){
+									var fees = myfees.concat(parentfees, siblingfees, descendantfees);
+									//fees = fees.unique();
+									callback(err, fees);
+								});
+							});
+						});
+					});
+				});
+			});
+		});
 	});
 }
 
 db.deleteProperty = function(id, prop, callback){
-	util.query2(util.cypher.delete_node_property, {id: id, property:prop}, callback);
+	var query = 'start node=node({id}) delete node.{{property}}';
+	this.query(query, {id: id, property:prop}, callback);	
 }
 
 db.setProperty = function(id, prop, value, callback){
-	util.query2(util.cypher.set_node_property, {id: id, property:prop, value:value}, callback);
+	var query = 'start node=node({id}) set node.{{property}}={value}';
+	this.query(query, {id: id, property:prop, value:value}, callback);	
 }
 
 db.deleteCost = function(costId, callback){
-	util.query2(util.cypher.delete_cost, {id: costId}, callback);
+	var query = 'start cost=node({id})	match cost-[:fee|feechild|costchild*]->m with cost, m MATCH m-[r?]-(), cost-[r1?]-() delete cost, m, r, r1';
+	this.query(query, {id: costId}, callback);	
+}
+
+db.feesAdj = function(feeIds, callback){
+	var me = this;
+	var query = 'start fees=node({feeIds}) match fees<-[:ref*]-rfees return collect(id(rfees)) as ids';
+	me.query(query, {feeIds:feeIds}, function(err, data){
+		data_col(err, data, null, true, function(err, rfeeIds){
+			var fids = feeIds.concat(rfeeIds);
+			fids = fids.unique();
+			
+			query = 'start fees=node({feeIds}) match fees-[:ref]->refs return id(fees) as feeId, collect(id(refs)) as adj';
+			me.query(query, {feeIds:fids}, function(err, data){
+				var adj = {};
+				data.forEach(function(r){				
+					adj[r.feeId] = r.adj.map(function(e){return e+''});
+				});
+				
+				fids = fids.map(function(fid){return fid+''});
+				fids.diff(Object.keys(adj)).forEach(function(id){					
+					adj[id] = [];
+				});
+				
+				callback(err, adj);
+			});			
+		});		
+	});
 }
 
 db.createFee = function(data, costId, costType, parentId, callback){
+	var me = this;
 	var childFees = data.fee || [];
 	delete data.fee;
 	
@@ -116,81 +177,94 @@ db.createFee = function(data, costId, costType, parentId, callback){
 	data.costType = costType;
 	
 	if(parentId){
-		util.query(util.cypher.create_fee_child, {parentId:parentId, data: data}, function(err, node){
-			async.each(childFees, function(cfee, cb){me.create(cfee, costId, costType, node[0].id, cb)}, function(err){
-				callback(err, node[0]);
-			});	
-		});
-		
+		var query = 'start parent=node({parentId}) create parent-[:feechild]->(node {data}) return node';
+		me.query(query, {parentId:parentId, data: data}, function(err, data){
+			data_col(err, data, null, true, function(err, node){
+				async.each(childFees, function(cfee, cb){
+					me.createFee(cfee, costId, costType, node.id, cb)
+				}, function(err){
+					callback(err, node);
+				});	
+			});
+		});		
 	}else{
-		util.query(util.cypher.create_cost_fee, {costId:costId, data: data}, function(err, node){
-			async.each(childFees, function(cfee, cb){me.create(cfee, costId, costType, node[0].id, cb)}, function(err){
-				callback(err, node[0]);
-			});	
-		});
+		var query = 'start cost=node({costId}) create cost-[:fee]->(node {data}) return node';
+		me.query(query, {costId:costId, data: data}, function(err, data){
+			data_col(err, data, null, true, function(err, node){
+				async.each(childFees, function(cfee, cb){
+					me.createFee(cfee, costId, costType, node.id, cb)
+				}, function(err){
+					callback(err, node);
+				});	
+			});
+		});		
 	}	
 }
 
+db.feesToFlushOnFeeCreate = function(costId, type, feeName, callback){
+	var me = this;
+	var query = 'start cost=node({costId}) match cost-[:fee|feechild*]->fees where fees.feeExpr=~ ".*cf\\\\({{feeName}}\\\\).*" return fees';
+	me.query(query, {costId: costId, feeName:feeName}, function(err, data){
+		data_col(err, data, null, false, function(err, myfees){
+			query = 'start cost=node({costId}) match cost<-[:costchild]-parent, parent-[:fee|feechild*]->parentfees where parentfees.feeExpr =~ ".*ccf\\\\({{type}},{{feeName}}\\\\).*" return parentfees';
+			me.query(query, {costId: costId, type:type, feeName:feeName}, function(err, data){
+				data_col(err, data, null, false, function(err, parentfees){
+					query = 'start cost=node({costId}) match cost<-[:costchild]-parent, parent-[:costchild]->sibling, sibling-[:fee|feechild*]->siblingfees where sibling <> cost and siblingfees.feeExpr =~ ".*csf\\\\({{feeName}}\\\\).*" return siblingfees';
+					me.query(query, {id: costId, feeName:feeName}, function(err, data){
+						data_col(err, data, null, false, function(err, siblingfees){
+							var fees = myfees.concat(parentfees, siblingfees);
+							fees = fees.unique();
+							callback(err, fees);
+						});
+					});
+				});
+			});
+		});
+	});	
+}
+
 db.getFee = function(id, callback){
-	util.query(util.cypher.node_byid, {id: id}, function(err, nodes){
-		if(nodes && nodes.length > 0){
-			callback(err, new Fee(nodes[0]));	
-		}else{
-			callback(err, null);
-		}			
+	var query = 'start node=node({id}) return node';
+	this.query(query, {id: id}, function(err, data){
+		data_col(err, data, null, true, callback);
 	});	
 }
 
 db.deleteFee = function(id, callback){
-	util.query2(util.cypher.delete_fee, {id: id}, callback);
-}
-
-db.feesToFlushOnFeeCreate = function(costId, type, feeName, callback){
-	util.query(util.cypher.cost_fees_mayref_fee, {costId: costId, feeName:feeName}, function(err, myfees){
-		util.query(util.cypher.parent_fees_mayref_fee, {costId: costId, type:type, feeName:feeName}, function(err, parentfees){
-			util.query(util.cypher.sibling_fees_mayref_fee, {id: costId, feeName:feeName}, function(err, siblingfees){
-				var fees = myfees.concat(parentfees, siblingfees);
-				fees = fees.unique();
-				async.map(fees, function(nfee, cb){cb(null, new Fee(nfee));}, callback);
-			});			
-		});
-	});
-}
-
-db.getFees = function(ids, callback){
-	
+	var query = 'start fee=node({id}) match fee-[:feechild*]->m with fee, m match m-[r?]-(), fee-[:r1?]-() delete fee, m, r, r1';
+	this.query(query, {id: id}, callback);	
 }
 
 db.createRefsTo = function(fromFeeId, toIds, callback){
-	util.query2(util.cypher.fee_ref_nodes, {
-		id : id,
-		nodes : nodeids
-	}, callback);
+	var me = this;
+	async.each(toIds, function(toId, cb){
+		var query = 'start me=node({id}), to=node({nodes}) create me-[r:ref]->to';
+		me.query(query, {id:fromFeeId, nodes:toId}, cb);	
+	}, callback);	
 }
 
 db.removeRefsTo = function(fromFeeId, toIds, callback){
-	util.query2(util.cypher.fee_unref_node, {
-		id : id,
-		to : nodeids
-	}, callback);
+	var query = 'start me=node({id}), to=node({to}) match me-[r:ref]->to delete r';
+	this.query(query, {id:fromFeeId, to:toIds}, callback);	
 }
 
 db.feeRefedToIds = function(feeId, callback){
-	util.query(util.cypher.fee_refed_nodeids, {
-		id : id
-	}, callback);
+	var query = 'start fee=node({id}) match fee-[:ref]->node return id(node) as ids';
+	this.query(query, {id: feeId}, function(err, data){
+		data_col(err, data, null, false, callback);
+	});		
 }
 /////////////////////////////////////////////////////
 function _cb(err, data, getId, callback){
-	var result = data.result ? [].concat(data.result) : [];
-	var values = result.map(function(e) {
-		return getId? e.id : e.value;
-	});		
-	callback(err, values);
+	var col = getId ? 'id' : 'value';
+	data_col(err, data, col, false, callback);	
 };
 
 db._C = function(costId, prop, getId, callback){
-	
+	var query = 'start cost=node({costId}) return id(cost) as id, cost.{{prop}} as value';
+	this.query(query, {costId: costId, prop:prop}, function(err, data){
+		_cb(err, data, getId, callback);
+	});
 }
 
 db._CF = function(costId, feeName, getId, callback) {	 
@@ -203,14 +277,14 @@ db._CF = function(costId, feeName, getId, callback) {
 
 db._CC = function(costId, type, prop, getId, callback) {
 	var query = 'start cost=node({costId}) match cost-[:costchild]->child where child.type! = {type} and has(child.{{prop}}) return id(child) as id, child.{{prop}} as value';
-	this.query(query, {costId: costId, type:costType, prop:pName}, function(err, data){
+	this.query(query, {costId: costId, type:type, prop:pName}, function(err, data){
 		_cb(err, data, getId, callback);
 	});
 }
 
 db._CCF = function(costId, type, feeName, getId, callback) {
 	var query = 'start cost=node({costId}) match cost-[:costchild]->child, child-[:fee|feechild*]->childfees where child.type! = {type} and childfees.feeName! = {feeName} return id(childfees) as id, childfees.feeResult as value';
-	this.query(query, {costId: costId, type:costType, feeName:feeName}, function(err, data){
+	this.query(query, {costId: costId, type:type, feeName:feeName}, function(err, data){
 		_cb(err, data, getId, callback);
 	});
 }

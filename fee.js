@@ -1,6 +1,7 @@
 var async = require('async');
 var Ref = require("./ref.js");
 var util = require("./util.js");
+var db = require("./db.js");
 
 var Fee = module.exports = function Fee(_node) {
 	this._node = _node;
@@ -50,7 +51,9 @@ Fee.prototype.feesToFlushOnCreate = function(callback) {
 	var costId = me.costId;
 	var type = me.costType;
 	var feeName = me.feeName;
-	db.feesToFlushOnFeeCreate(costId, type, feeName, callback);
+	db.feesToFlushOnFeeCreate(costId, type, feeName, function(err, nfees){
+		async.map(nfees, function(nfee, cb){cb(null, new Fee(nfee));}, callback);
+	});
 }
 
 Fee.prototype.feesToFlushOnUpdate = function(key, value, callback) {
@@ -75,7 +78,7 @@ Fee.prototype.feesToFlushOnDelete = function(callback) {
 
 Fee.prototype.createRefTo = function(toIds, callback) {
 	var id = this.id;
-	db.createRefTo(id, toIds, callback);
+	db.createRefsTo(id, toIds, callback);
 }
 
 Fee.prototype.removeRefsTo = function(toIds, callback) {

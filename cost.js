@@ -23,21 +23,27 @@ Cost.prototype.feesToFlushOnCreate = function(callback) {
 	var me = this;
 	var costId = me.id;
 	var type = me.type;
-	db.feesToFlushOnCostCreate(costId, type, callback);
+	db.feesToFlushOnCostCreate(costId, type, function(err, nfees){
+		async.map(nfees, function(nfee, cb){cb(null, new Fee(nfee));}, callback);
+	});
 }
 
 Cost.prototype.feesToFlushOnUpdate = function(key, value, callback) {
 	var me = this;
 	var costId = me.id;
 	var type = me.type;
-	db.feesToFlushOnCostUpdate(costId, type, key, callback);
+	db.feesToFlushOnCostUpdate(costId, type, key, function(err, nfees){
+		async.map(nfees, function(nfee, cb){cb(null, new Fee(nfee));}, callback);
+	});
 }
 
 Cost.prototype.feesToFlushOnDelete = function(callback) {
 	var me = this;
 	var costId = me.id;
 	var type = me.type;
-	db.feesToFlushOnCostDelete(costId, type, callback);
+	db.feesToFlushOnCostDelete(costId, type, function(err, nfees){
+		async.map(nfees, function(nfee, cb){cb(null, new Fee(nfee));}, callback);
+	});
 }
 
 Cost.prototype.update = function(prop, value, callback){

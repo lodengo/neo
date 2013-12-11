@@ -36,56 +36,45 @@ Calc.prototype.calc = function(callback) {
 		var feeResult = 0;
 		try {
 			feeResult = math.eval(feeExpr);
-			console.log(me._fee.costType + '.' + me._fee.feeName + '='
-					+ feeResult);
+			feeResult = feeResult.toFixed(2);
+			console.log(me._fee.costType+'.'+me._fee.feeName+'('+me._fee.feeExpr+')='+feeResult);
 		} catch (e) {
-			feeResult = 0;			
+			feeResult = 0;
 		}
-		feeResult = feeResult.toFixed(2);
+		
 		me._fee.feeResult = feeResult;
+		
 		db.setFeeResult(me._fee.id, feeResult, callback);
 	});
 }
 
+Calc._adj = function(ids, callback) {
+	db.feesAdj(ids, function(err, adj){
+		callback(err, adj);
+	});
+}
+
 Calc.start = function(ids, callback) {
-	util.query2(util.cypher.fees_adj1, {
-		id : ids
-	}, function(err, rows) {
-		if (err) {
-			return callback(null);
-		}
-		var fees = rows.map(function(row) {
-			return row.fid
+	var me = this;
+	me._adj(ids, function(err, adj){ 
+		var us = Object.keys(adj);
+		var uvs = us.map(function(u){
+			return {u: u, v: us.intersect(adj[u])};
 		});
-		util.query2(util.cypher.fees_adj, {
-			id : ids
-		}, function(err, rows2) {
-			fees = fees.concat(rows2.map(function(row) {
-				return row.fid
-			}));
-
-			var urows = rows.concat(rows2);
-			var uvs = urows.map(function(row) {
-				return {
-					u : row.fid,
-					v : fees.intersect(row.fids)
-				};
-			});
-
-			var toposort = new TopoSort(uvs);
-			fees = toposort.sort();
-
-			if (fees.cycle) {
-				callback(null);
-			} else {
-				async.eachSeries(fees.order, function(feeid, cb) {
-					Fee.get(parseInt(feeid), function(err, fee) {
-						var calc = new Calc(fee);
-						calc.calc(cb);
-					});
-				}, callback);
-			}
-		});
+		
+		var toposort = new TopoSort(uvs);
+		fees = toposort.sort();	
+		
+		if(fees.cycle){
+			callback(null);
+		}else{
+			async.eachSeries(fees.order, function(feeid, cb){
+				Fee.get(parseInt(feeid), function(err, fee){
+					var calc = new Calc(fee);
+					calc.calc(cb);
+				});				
+			}, callback);			
+		}		
 	});
 }
 

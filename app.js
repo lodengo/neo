@@ -3,274 +3,6 @@ var async = require('async');
 var Cost = require('./cost.js');
 var util = require("./util.js");
 
-var fees = {
-	'ztgc' : [ { //整体工程
-		feeName : '单项工程费用合计',
-		feeExpr : 'sum(ccf(单项工程,工程总造价))',
-		feeResult : '0'
-	}, {
-		feeName : '整体工程费用合计',
-		feeExpr : '0',
-		feeResult : '0'
-	}, {
-		feeName : '工程总造价',
-		feeExpr : 'cf(单项工程费用合计)+cf(整体工程费用合计)',
-		feeResult : '0'
-	} ],
-	'dxgc' : [ // 单项工程
-			{
-				feeName : '单位工程工程费合计',
-				feeExpr : 'sum(ccf(单位工程,工程总造价))',
-				feeResult : '0'
-			},
-			{
-				feeName : '单项工程费用合计',
-				feeExpr : 'cf(措施项目清单费用)+cf(其他项目清单费用)+cf(规费)+cf(税金)',
-				feeResult : '0',
-				fee : [
-						{
-							feeName : '措施项目清单费用',
-							feeExpr : '100+10*20',
-							feeResult : '0'
-						},
-						{
-							feeName : '其他项目清单费用',
-							feeExpr : '500+100',
-							feeResult : '0'
-						},
-						{
-							feeName : '规费',
-							feeExpr : 'cf(工程排污费)+cf(社会保障费)+cf(住房公积金)+cf(河道管理费)',
-							feeResult : '0',
-							fee : [
-									{
-										feeName : '工程排污费',
-										feeExpr : 'cf(措施项目清单费用)*f(feeRate)',
-										feeRate : '0.0348', // 费率
-										feeResult : '0'
-									},
-									{
-										feeName : '社会保障费',
-										feeExpr : '200*f(feeRate)',
-										feeRate : '0.0348', // 费率
-										feeResult : '0'
-									},
-									{
-										feeName : '住房公积金',
-										feeExpr : 'cf(措施项目清单费用)*f(feeRate)',
-										feeRate : '0.0348', // 费率
-										feeResult : '0'
-									},
-									{
-										feeName : '河道管理费',
-										feeExpr : '(cf(措施项目清单费用)+cf(其他项目清单费用)+cf(工程排污费)+cf(社会保障费)+cf(住房公积金))*f(feeRate)',
-										feeRate : '0.0348', // 费率
-										feeResult : '0'
-									} ]
-						},
-						{
-							feeName : '税金',
-							feeExpr : '(cf(措施项目清单费用)+cf(其他项目清单费用)+cf(规费)-cf(河道管理费))*f(feeRate)',
-							feeRate : '0.0348', // 费率
-							feeResult : '0'
-						} ]
-			}, {
-				feeName : '工程总造价',
-				feeExpr : 'cf(单位工程工程费合计)+cf(单项工程费用合计)',
-				feeResult : '0'
-			} ],
-	'dwgc' : [ // 单位工程
-			{
-				feeName : '分部分项工程量清单费用',
-				feeExpr : 'sum(ccf(分部分项,综合合价))',
-				feeResult : '0'
-			},
-			{
-				feeName : '措施项目清单费用',
-				feeExpr : '0',
-				feeResult : '0'
-			},
-			{
-				feeName : '其他项目清单费用',
-				feeExpr : '0',
-				feeResult : '0'
-			},
-			{
-				feeName : '规费',
-				feeExpr : 'cf(工程排污费)+cf(社会保障费)+cf(住房公积金)+cf(河道管理费)',
-				feeResult : '0',
-				fee : [
-						{
-							feeName : '工程排污费',
-							feeExpr : '(cf(分部分项工程量清单费用)+cf(措施项目清单费用))*f(feeRate)',
-							feeRate : '0.0348', // 费率
-							feeResult : '0'
-						},
-						{
-							feeName : '社会保障费',
-							feeExpr : '200*f(feeRate)',
-							feeRate : '0.0348', // 费率
-							feeResult : '0'
-						},
-						{
-							feeName : '住房公积金',
-							feeExpr : '(cf(分部分项工程量清单费用)+cf(措施项目清单费用))*f(feeRate)',
-							feeRate : '0.0348', // 费率
-							feeResult : '0'
-						},
-						{
-							feeName : '河道管理费',
-							feeExpr : '(cf(分部分项工程量清单费用)+cf(措施项目清单费用)+cf(其他项目清单费用)+cf(工程排污费)+cf(社会保障费)+cf(住房公积金))*f(feeRate)',
-							feeRate : '0.0348', // 费率
-							feeResult : '0'
-						} ]
-			},
-			{
-				feeName : '税金',
-				feeExpr : '(cf(分部分项工程量清单费用)+cf(措施项目清单费用)+cf(其他项目清单费用)+cf(规费)-cf(河道管理费))*f(feeRate)',
-				feeResult : '0',
-				feeRate : '0.0348', // 费率
-			},
-			{
-				feeName : '工程总造价',
-				feeExpr : 'cf(分部分项工程量清单费用)+cf(措施项目清单费用)+cf(其他项目清单费用)+cf(规费)+cf(税金)',
-				feeResult : '0'
-			} ],
-	'fbfx' : [ { // 分部分项
-		feeName : '人工费合价',
-		feeExpr : 'sum(ccf(清单,人工费合价))',
-		feeResult : '0'
-	}, {
-		feeName : '材料费合价',
-		feeExpr : 'sum(ccf(清单,材料费合价))',
-		feeResult : '0'
-	}, {
-		feeName : '机械费合价',
-		feeExpr : 'sum(ccf(清单,机械费合价))',
-		feeResult : '0'
-	}, {
-		feeName : '直接费合价',
-		feeExpr : 'sum(ccf(清单,直接费合价))',
-		feeResult : '0'
-	}, {
-		feeName : '综合合价',
-		feeExpr : 'sum(ccf(清单,综合合价))',
-		feeResult : '0'
-	} ],
-	'qd' : [ { // 清单
-		feeName : '人工费',
-		feeExpr : 'cf(人工费合价)/c(quantity)',
-		feeResult : '0'
-	}, {
-		feeName : '人工费合价',
-		feeExpr : 'sum(ccf(定额,人工费合价))',
-		feeResult : '0'
-	}, {
-		feeName : '材料费',
-		feeExpr : 'cf(材料费合价)/c(quantity)',
-		feeResult : '0'
-	}, {
-		feeName : '材料费合价',
-		feeExpr : 'sum(ccf(定额,材料费合价))',
-		feeResult : '0'
-	}, {
-		feeName : '机械费',
-		feeExpr : 'cf(机械费合价)/c(quantity)',
-		feeResult : '0'
-	}, {
-		feeName : '机械费合价',
-		feeExpr : 'sum(ccf(定额,机械费合价))',
-		feeResult : '0'
-	}, {
-		feeName : '直接费',
-		feeExpr : 'cf(人工费)+cf(材料费)+cf(机械费)',
-		feeResult : '0'
-	}, {
-		feeName : '直接费合价',
-		feeExpr : 'cf(直接费)*c(quantity)',
-		feeResult : '0'
-	}, {
-		feeName : '综合单价',
-		feeExpr : 'cf(综合合价)/c(quantity)',
-		feeResult : '0'
-	}, {
-		feeName : '综合合价',
-		feeExpr : 'sum(ccf(定额,综合合价))',
-		feeResult : '0'
-	} ],
-	'de' : [ // 定额
-	         { 
-		feeName : '人工费',
-		feeExpr : 'sum(ccf(人工,直接费))',
-		feeResult : '0'
-	}
-	,{
-		feeName : '人工费合价',
-		feeExpr : 'cf(人工费)*c(quantity)',
-		feeResult : '0'
-	}
-	, {
-		feeName : '材料费',
-		feeExpr : 'sum(ccf(材料,直接费))',
-		feeResult : '0'
-	}
-	, {
-		feeName : '材料费合价',
-		feeExpr : 'cf(材料费)*c(quantity)',
-		feeResult : '0'
-	}
-	, {
-		feeName : '机械费',
-		feeExpr : 'sum(ccf(机械,直接费))',
-		feeResult : '0'
-	}
-	, {
-		feeName : '机械费合价',
-		feeExpr : 'cf(机械费)*c(quantity)',
-		feeResult : '0'
-	}
-	, {
-		feeName : '直接费',
-		feeExpr : 'cf(人工费)+cf(材料费)+cf(机械费)',
-		feeResult : '0'
-	}, {
-		feeName : '直接费合价',
-		feeExpr : 'cf(直接费)*c(quantity)',
-		feeResult : '0'
-	}
-	, {
-		feeName : '管理费',
-		feeExpr : '1+2',
-		feeResult : '0'
-	}, {
-		feeName : '管理费合价',
-		feeExpr : 'cf(管理费)*c(quantity)',
-		feeResult : '0'
-	}, {
-		feeName : '利润',
-		feeExpr : '1+2*3',
-		feeResult : '0'
-	}, {
-		feeName : '利润合价',
-		feeExpr : 'cf(利润)*c(quantity)',
-		feeResult : '0'
-	}, {
-		feeName : '综合单价',
-		feeExpr : 'cf(直接费)+cf(管理费)+cf(利润)',
-		feeResult : '0'
-	}, {
-		feeName : '综合合价',
-		feeExpr : 'cf(综合单价)*c(quantity)',
-		feeResult : '0'
-	} 
-	],
-	'glj' : [ { // 工料机
-		feeName : '直接费',
-		feeExpr : 'c(price)*c(content)',
-		feeResult : '0'
-	} ]
-};
-// ////////////////////////////////////////////
 function Tester() {
 	this.ztgc = 0; //整体工程id
 	this.dxgc = []; //单项工程ids
@@ -286,8 +18,8 @@ Tester.prototype.createZtgc = function(callback) {
 	var ztgc = {
 		type : '整体工程'
 	};
-	var fs = fees['ztgc'];
-	Api.createCost(ztgc, fs, null, function(err, cost){
+	//var fs = fees['ztgc'];
+	Api.createCost(ztgc, null, function(err, cost){
 		me.ztgc = cost.id;
 		callback(null, cost);
 	});
@@ -299,8 +31,8 @@ Tester.prototype.createDXgc = function(callback) {
 	var dxgc = {
 		type : '单项工程'
 	};
-	var fs = fees['dxgc'];	
-	Api.createCost(dxgc, fs, parentId, function(err, cost){
+	//var fs = fees['dxgc'];	
+	Api.createCost(dxgc, parentId, function(err, cost){
 		me.dxgc.push(cost.id);
 		callback(null, cost);
 	});
@@ -311,10 +43,10 @@ Tester.prototype.createDwgc = function(callback) {
 	var dwgc = {
 		type : '单位工程'
 	};
-	var fs = fees['dwgc'];
+	//var fs = fees['dwgc'];
 	var parentId =  me.dxgc.random();
 	if(!parentId){return callback(null);}
-	Api.createCost(dwgc, fs, parentId, function(err, cost){
+	Api.createCost(dwgc, parentId, function(err, cost){
 		me.dwgc.push(cost.id);
 		callback(null, cost);
 	});
@@ -325,10 +57,10 @@ Tester.prototype.createFbfx = function(callback) {
 	var fbfx = {
 		type : '分部分项'
 	};
-	var fs = fees['fbfx'];
+	//var fs = fees['fbfx'];
 	var parentId =  me.dwgc.random();
 	if(!parentId){return callback(null);}
-	Api.createCost(fbfx, fs, parentId, function(err, cost){
+	Api.createCost(fbfx, parentId, function(err, cost){
 		me.fbfx.push(cost.id);
 		callback(null, cost);
 	});
@@ -341,10 +73,10 @@ Tester.prototype.createQd = function(callback){
 			quantity: Math.random() * 1000
 	};
 	
-	var fs = fees['qd'];
+	//var fs = fees['qd'];
 	var parentId = me.fbfx.random();
 	if(!parentId){return callback(null);}
-	Api.createCost(qd, fs, parentId, function(err, cost){
+	Api.createCost(qd, parentId, function(err, cost){
 		me.qd.push(cost.id);
 		callback(null, cost);
 	});
@@ -356,10 +88,10 @@ Tester.prototype.createDe = function(callback) {
 		type : '定额',
 		quantity: Math.random() * 1000
 	};
-	var fs = fees['de'];
+	//var fs = fees['de'];
 	var parentId =  me.qd.random();
 	if(!parentId){return callback(null);}
-	Api.createCost(de, fs, parentId, function(err, cost){
+	Api.createCost(de, parentId, function(err, cost){
 		me.de.push(cost.id);
 		callback(null, cost);
 	});
@@ -373,10 +105,10 @@ Tester.prototype.createGlj = function(callback) {
 		'price' : Math.random() * 100,
 		'content' : Math.random()
 	};
-	var fs = fees['glj'];
+	//var fs = fees['glj'];
 	var parentId =  me.de.random();
 	if(!parentId){return callback(null);}
-	Api.createCost(glj, fs, parentId, function(err, cost){
+	Api.createCost(glj, parentId, function(err, cost){
 		me.glj.push(cost.id);
 		callback(null, cost);
 	});
@@ -446,18 +178,14 @@ function step(actor, actions, i, callback){
 
 function run(callback){	
 	var actions = ['createZtgc'];
-	arrPush(actions, "createDXgc", 2);
+	arrPush(actions, "createDXgc", 1);
 	arrPush(actions, "createDwgc", 4);
-	arrPush(actions, "createFbfx", 8);
-	
-	var ops = [];
-	arrPush(ops, "createQd", 16);	
-	arrPush(ops, "createDe", 32);	
-	arrPush(ops, "createGlj", 100);	
+	arrPush(actions, "createFbfx", 8);	
+	arrPush(actions, "createQd", 16);	
+	arrPush(actions, "createDe", 32);	
+	arrPush(actions, "createGlj", 100);	
 	//arrPush(actions, "modGcl", 5);
-	//arrPush(actions, "delNode", 2);
-		
-	actions = actions.concat(ops.shuffle());
+	//arrPush(actions, "delNode", 2);	
 	
 	var actor = new Tester();
 	step(actor, actions, 0, callback);

@@ -3,6 +3,7 @@ var Cost = require("./cost.js");
 var Fee = require("./fee.js");
 var Calc = require("./calc.js");
 var util = require("./util.js");
+var Fees = require("./fees.js");
 
 var Api = module.exports = function Api() {
 
@@ -21,8 +22,9 @@ Api._flushFees = function(fees, callback) {
 	});
 }
 
-Api.createCost = function(data, fees, parentId, callback) {
+Api.createCost = function(data, parentId, callback) {
 	var me = this;
+	var fees = Fees[data.type];
 	Cost.create(data, parentId, function(err, cost) {
 		async.each(fees, function(fee, cb) {
 			cost.createFee(fee, null, cb);

@@ -82,14 +82,23 @@ Array.prototype.diff =
 	    return o;
  };
  ////////////////////////////////////////////////////
-exports.math_extend = {
-		sum: function(args){			
-			var total = 0;
-			var argsArray = arguments;
-			Object.keys(argsArray).forEach(function(key){total += argsArray[key];});
-			return total;
-		}
-};
+//费用表达式引用关系
+ exports.refReg = new RegExp([ 'f', 'c', 'cf', 'cc', 'ccf', 'cs', 'csf', 'cas' ]
+ 		.join('\\([^\\)]*\\)|')
+ 		+ '\\([^\\)]*\\)', 'g');
+
+ // 费用表达式--计算扩展 see:
+ // https://github.com/josdejong/mathjs/blob/master/docs/extend.md
+ exports.math_extend = {
+ 	sum : function(args) {
+ 		var total = 0;
+ 		var argsArray = arguments;
+ 		Object.keys(argsArray).forEach(function(key) {
+ 			total += argsArray[key];
+ 		});
+ 		return total;
+ 	}
+ };
 
 
 
